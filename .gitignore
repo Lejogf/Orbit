@@ -1,0 +1,20 @@
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+dist/
+build/
+
+# Local database
+*.db
+*.db-journal
+
+# OS / editor
+.DS_Store
+.vscode/

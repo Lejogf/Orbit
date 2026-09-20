@@ -8,6 +8,7 @@ import { ApiError } from '../lib/http.js';
 import { formatCents } from '../lib/utils.js';
 import { splitBill, splitEvenly, type ReceiptItem, type SplitPerson } from '../features/receipt.js';
 import { raiseAlert } from './notify.js';
+import { markSplitSettled, recordActivity, saveBillSplit, splitPartners } from './documents.js';
 
 export interface SplitRequest {
   title: string;
@@ -74,6 +75,34 @@ export async function saveSplit(prisma: PrismaClient, customerId: string, input:
     include: { shares: true },
   });
 
+  // Mirror the receipt into Atlas in the shape it is read in: items, who
+  // shared each one, and what each person ends up owing. That is one document
+  // instead of the three-table join this screen otherwise needs.
+  void saveBillSplit({
+    splitId: split.id,
+    customerId,
+    merchant: split.title,
+    totalCents: total,
+    taxCents: input.taxCents,
+    tipCents: input.tipCents,
+    items: input.items.map((item) => ({
+      name: item.name,
+      cents: item.cents,
+      quantity: item.quantity,
+      // `assignments` maps an item id to the people who shared it. Names, not
+      // ids, because the document is read on its own and ids mean nothing there.
+      sharedBy: (input.assignments[item.id] ?? []).map((personId) => people.get(personId)?.name ?? personId),
+    })),
+    people: split.shares.map((share) => ({
+      name: share.name,
+      contact: share.contact,
+      owesCents: share.amountCents,
+      settled: share.isSelf,
+    })),
+    source: input.transactionId ? 'card_purchase' : 'receipt_ocr',
+  });
+  void recordActivity(customerId, 'split_created', `Split ${split.title} ${formatCents(total)} with ${input.people.length - 1} other${input.people.length === 2 ? '' : 's'}`);
+
   const owed = split.shares.filter((s) => !s.isSelf);
   await raiseAlert(prisma, {
     customerId,
@@ -95,6 +124,17 @@ export async function listSplits(prisma: PrismaClient, customerId: string) {
   });
 }
 
+/**
+ * Who you split with most, and what is still outstanding with each.
+ *
+ * Answered from Atlas, because it needs the nested `people` array unwound and
+ * grouped across every split. Without a cluster it returns an empty list and
+ * the section simply does not appear.
+ */
+export async function splitSummary(customerId: string) {
+  return { partners: await splitPartners(customerId) };
+}
+
 /** Records a repayment as a deposit into checking. */
 export async function markSharePaid(prisma: PrismaClient, customerId: string, shareId: string) {
   const share = await prisma.splitShare.findFirst({
@@ -103,6 +143,9 @@ export async function markSharePaid(prisma: PrismaClient, customerId: string, sh
   });
   if (!share) throw ApiError.notFound('Request');
   if (share.status !== 'requested') return share;
+
+  void markSplitSettled(share.splitId, share.name);
+  void recordActivity(customerId, 'split_settled', `${share.name} paid ${formatCents(share.amountCents)} for ${share.split.title}`);
 
   const checking = await prisma.account.findFirst({ where: { customerId, type: 'Checking' } });
   const now = new Date();

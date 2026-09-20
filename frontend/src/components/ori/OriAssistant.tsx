@@ -70,6 +70,13 @@ export function OriAssistant() {
   const [autoSpeak, setAutoSpeak] = useState(false);
   /** Plays one rotation of Ori's mark as the panel opens. */
   const [spinning, setSpinning] = useState(false);
+  /**
+   * How much of a phone screen the panel takes. It used to be all of it, which
+   * hid the page the customer was asking about — so the default is a sheet that
+   * leaves the content behind it visible, and "expanded" is opt-in. Desktop is
+   * unaffected: there the panel is a fixed-size card in the corner.
+   */
+  const [expanded, setExpanded] = useState(false);
 
   const scroller = useRef<HTMLDivElement>(null);
   /** Latest `send`, so callbacks created earlier never use stale conversation state. */
@@ -316,12 +323,30 @@ export function OriAssistant() {
       {open && (
         <div className="fixed inset-0 z-50 lg:inset-auto lg:bottom-6 lg:right-6" role="dialog" aria-modal="false" aria-labelledby="ori-title">
           <button className="absolute inset-0 bg-ink-900/40 backdrop-blur-[2px] lg:hidden" aria-label={t('ori.close')} onClick={close} tabIndex={-1} />
-          <section ref={panel} className="animate-rise absolute inset-x-0 bottom-0 top-8 flex flex-col overflow-hidden rounded-t-3xl border border-line bg-surface shadow-float lg:static lg:h-[min(44rem,calc(100vh-3rem))] lg:w-[26rem] lg:rounded-3xl lg:ring-1 lg:ring-line">
-            <header className="flex items-center gap-3 border-b border-line px-4 py-3">
+          <section
+            ref={panel}
+            // svh, not vh: on a phone, vh includes the browser chrome that
+            // slides away as you scroll, which makes a bottom sheet jump.
+            className={`animate-rise absolute inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-3xl border border-line bg-surface shadow-float transition-[height] duration-300 ease-spring lg:static lg:h-[min(44rem,calc(100vh-3rem))] lg:w-[26rem] lg:rounded-3xl lg:ring-1 lg:ring-line ${
+              expanded ? 'h-[92svh]' : 'h-[68svh] min-h-[26rem]'
+            }`}
+          >
+            {/* Grab handle. Tapping it toggles the sheet's height; it is also
+                the affordance that says this is a sheet, not a page. */}
+            <button
+              onClick={() => setExpanded((e) => !e)}
+              aria-label={expanded ? t('ori.shrink') : t('ori.expand')}
+              aria-expanded={expanded}
+              className="group grid shrink-0 place-items-center py-2.5 lg:hidden"
+            >
+              <span className="h-1.5 w-10 rounded-full bg-line-strong transition group-hover:bg-ink-400" />
+            </button>
+
+            <header className="flex items-center gap-3 border-b border-line px-4 pb-3 lg:pt-3">
               <OriAvatar size={38} spinning={spinning} />
               <div className="min-w-0 flex-1">
                 <h2 id="ori-title" className="font-display text-base font-bold text-ink-900">{t('ori.title')}</h2>
-                <p className="text-[0.6875rem] text-ink-500">{t('ori.subtitle')}</p>
+                <p className="truncate text-[0.6875rem] text-ink-500">{t('ori.subtitle')}</p>
               </div>
               <button
                 onClick={newConversation}
@@ -347,6 +372,16 @@ export function OriAssistant() {
               >
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
                   <path d="M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setExpanded((e) => !e)}
+                aria-label={expanded ? t('ori.shrink') : t('ori.expand')}
+                title={expanded ? t('ori.shrink') : t('ori.expand')}
+                className="grid h-10 w-10 place-items-center rounded-full text-ink-500 transition hover:bg-surface-sunken lg:hidden"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {expanded ? <path d="M8 4 4 8m0 0h4M4 8V4m12 16 4-4m0 0h-4m4 0v4" /> : <path d="M4 9V4h5M20 15v5h-5" />}
                 </svg>
               </button>
               <button onClick={close} aria-label={t('ori.close')} className="grid h-10 w-10 place-items-center rounded-full text-ink-500 hover:bg-surface-sunken">
@@ -393,7 +428,9 @@ export function OriAssistant() {
             </div>
 
             <form
-              className="border-t border-line p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
+              // shrink-0 so the composer keeps its height when the transcript
+              // is long: on a phone sheet it was being squeezed and clipped.
+              className="shrink-0 border-t border-line p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
               onSubmit={(e) => {
                 e.preventDefault();
                 void send(draft);
@@ -424,7 +461,7 @@ export function OriAssistant() {
                     aria-label={t('ori.listen')}
                     aria-pressed={speech.listening}
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition ${
-                      speech.listening ? 'animate-pulse bg-danger-500 text-white' : 'text-ink-500 hover:bg-surface-sunken'
+                      speech.listening ? 'animate-pulse bg-danger-500 text-on-danger' : 'text-ink-500 hover:bg-surface-sunken'
                     }`}
                   >
                     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
@@ -432,7 +469,7 @@ export function OriAssistant() {
                     </svg>
                   </button>
                 )}
-                <button type="submit" disabled={!draft.trim() || busy} aria-label={t('ori.send')} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-500 text-white transition hover:bg-accent-600 disabled:opacity-40">
+                <button type="submit" disabled={!draft.trim() || busy} aria-label={t('ori.send')} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-500 text-on-accent transition hover:bg-accent-600 disabled:opacity-40">
                   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M5 12h14M13 6l6 6-6 6" />
                   </svg>

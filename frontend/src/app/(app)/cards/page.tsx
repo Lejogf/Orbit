@@ -94,13 +94,22 @@ function CardsInner() {
                 key={held.accountId}
                 onClick={() => setSelected(held.accountId)}
                 aria-pressed={held.accountId === card?.accountId}
-                className={`shrink-0 rounded-2xl transition-opacity ${held.accountId === card?.accountId ? '' : 'opacity-60 hover:opacity-100'}`}
+                // The unselected cards used to drop to opacity-60, which made
+                // their numbers and names genuinely hard to read. Selection is
+                // now shown by a ring and a slight lift instead, so every card
+                // in the rail stays legible.
+                className={`shrink-0 rounded-2xl ring-offset-4 ring-offset-canvas transition-all duration-200 ease-spring ${
+                  held.accountId === card?.accountId
+                    ? 'ring-2 ring-ink-900'
+                    : 'opacity-95 ring-0 hover:opacity-100 hover:-translate-y-0.5'
+                }`}
               >
                 <PaymentCard
                   name={held.name}
                   last4={held.last4}
                   holder={holder}
                   art={held.art}
+                  funding={held.funding}
                   locked={held.isLocked}
                   business={held.kind === 'business'}
                   revealedNumber={revealed[held.accountId] ?? null}
@@ -116,15 +125,23 @@ function CardsInner() {
       {card && (
         <div className="grid gap-4 lg:grid-cols-2">
           <SectionCard title={card.name}>
+            <p className="mb-2">
+              <Chip tone={card.funding === 'debit' ? 'info' : 'accent'}>
+                {card.funding === 'debit' ? 'Debit card' : 'Credit card'}
+              </Chip>
+            </p>
             <p className="text-sm leading-relaxed text-ink-700">{card.tagline}</p>
 
+            {/* "Balance" means opposite things on the two kinds of card: money
+                you have, or money you owe. So the labels differ rather than
+                making the customer work it out. */}
             <dl className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-surface-sunken p-3">
-                <dt className="text-xs text-ink-500">Balance</dt>
+                <dt className="text-xs text-ink-500">{card.funding === 'debit' ? 'In your account' : 'Owed'}</dt>
                 <dd className="mt-0.5 font-display text-lg font-bold text-ink-900 tnum">{formatCents(card.balanceCents)}</dd>
               </div>
               <div className="rounded-xl bg-surface-sunken p-3">
-                <dt className="text-xs text-ink-500">Available</dt>
+                <dt className="text-xs text-ink-500">{card.funding === 'debit' ? 'Free to spend' : 'Available credit'}</dt>
                 <dd className="mt-0.5 font-display text-lg font-bold text-ink-900 tnum">
                   {card.availableCents !== null ? formatCents(card.availableCents) : '—'}
                 </dd>
@@ -157,7 +174,7 @@ function CardsInner() {
               <Link href={`/accounts/${card.accountId}?from=cards`} className="btn-ghost">
                 Transactions
               </Link>
-              {!card.physicalOrderedAt ? (
+              {card.funding === 'debit' ? null : !card.physicalOrderedAt ? (
                 <button
                   onClick={async () => {
                     await money.orderPhysical(card.accountId);
@@ -174,7 +191,13 @@ function CardsInner() {
             </div>
           </SectionCard>
 
-          <SectionCard title="What this card earns">
+          <SectionCard title={card.funding === 'debit' ? 'What this card does' : 'What this card earns'}>
+            {card.earn.length === 0 && (
+              <p className="mb-3 text-sm leading-relaxed text-ink-700">
+                A debit card does not earn points — it spends money you already have, so there is nothing for us to
+                pay you back out of. Points come from the credit cards below.
+              </p>
+            )}
             <ul className="space-y-2">
               {card.earn.map((rule) => (
                 <li key={rule.category} className="flex items-center justify-between gap-3 rounded-xl bg-surface-sunken px-3.5 py-2.5">
@@ -195,8 +218,14 @@ function CardsInner() {
             </ul>
 
             <p className="mt-4 text-xs text-ink-500">
-              {card.annualFeeCents === 0 ? 'No annual fee.' : `${formatCents(card.annualFeeCents)} a year.`} Points are worth{' '}
-              <Link href="/rewards" className="font-semibold underline">100 points = $1</Link>, always.
+              {card.annualFeeCents === 0 ? 'No annual fee.' : `${formatCents(card.annualFeeCents)} a year.`}{' '}
+              {card.funding === 'debit' ? (
+                'No interest either — you can only spend what is there.'
+              ) : (
+                <>
+                  Points are worth <Link href="/rewards" className="font-semibold underline">100 points = $1</Link>, always.
+                </>
+              )}
             </p>
           </SectionCard>
         </div>

@@ -93,7 +93,7 @@ export default function SubscriptionsPage() {
               onClick={() => setStatus(option)}
               aria-pressed={status === option}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
-                status === option ? 'bg-ink-600 text-white' : 'text-ink-600 hover:text-ink-800'
+                status === option ? 'bg-ink-600 text-canvas' : 'text-ink-600 hover:text-ink-800'
               }`}
             >
               {option}

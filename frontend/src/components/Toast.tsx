@@ -117,11 +117,47 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-const TONES: Record<ToastTone, { wrap: string; bar: string; icon: string }> = {
-  success: { wrap: 'bg-ink-800 text-white', bar: 'bg-accent-600', icon: '✓' },
-  info: { wrap: 'bg-ink-800 text-white', bar: 'bg-ink-300', icon: 'i' },
-  warning: { wrap: 'bg-surface text-ink-900 border border-warn-300', bar: 'bg-warn-500', icon: '!' },
-  error: { wrap: 'bg-surface text-ink-900 border border-accent-200', bar: 'bg-accent-500', icon: '!' },
+/**
+ * One surface, four meanings.
+ *
+ * The previous version painted success and info as `bg-ink-800 text-white`.
+ * That reads fine in light mode, where ink-800 is nearly black — but ink is the
+ * scale that INVERTS with the theme, so in dark mode ink-800 is nearly white
+ * and the toast was white text on a white card. Invisible.
+ *
+ * So no tone hardcodes a colour any more. Each is a tinted surface with its own
+ * semantic border and icon, and every one of those tokens swaps with the theme.
+ * The tones are also told apart by more than hue — icon, border and bar colour
+ * all differ — so they survive colour-blind-safe mode, where accent and danger
+ * are deliberately re-mapped.
+ */
+const TONES: Record<ToastTone, { wrap: string; bar: string; badge: string; icon: string }> = {
+  success: {
+    wrap: 'bg-accent-50 text-accent-900 ring-1 ring-accent-300',
+    bar: 'bg-accent-500',
+    badge: 'bg-accent-500 text-accent-50',
+    icon: '✓',
+  },
+  info: {
+    wrap: 'bg-info-50 text-info-900 ring-1 ring-info-300',
+    bar: 'bg-info-500',
+    badge: 'bg-info-500 text-info-50',
+    icon: 'i',
+  },
+  warning: {
+    wrap: 'bg-warn-50 text-warn-900 ring-1 ring-warn-300',
+    bar: 'bg-warn-500',
+    badge: 'bg-warn-500 text-warn-50',
+    icon: '!',
+  },
+  error: {
+    // Errors are danger-red, not brand green. The old build styled them with
+    // the accent scale, which made a failure look like a success.
+    wrap: 'bg-danger-50 text-danger-900 ring-1 ring-danger-300',
+    bar: 'bg-danger-500',
+    badge: 'bg-danger-500 text-danger-50',
+    icon: '!',
+  },
 };
 
 function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
@@ -134,32 +170,22 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       aria-live="polite"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      className={`pointer-events-auto relative w-full max-w-sm overflow-hidden rounded-xl shadow-lg ${tone.wrap} ${
+      className={`pointer-events-auto relative w-full max-w-sm overflow-hidden rounded-xl shadow-raised ${tone.wrap} ${
         toast.leaving ? 'animate-toast-out' : 'animate-toast-in'
       }`}
     >
       <div className="flex items-start gap-3 px-4 py-3">
         <span
-          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-            toast.tone === 'success' || toast.tone === 'info'
-              ? 'bg-white/15 text-white'
-              : 'bg-surface-sunken text-ink-700'
-          }`}
+          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${tone.badge}`}
           aria-hidden="true"
         >
           {tone.icon}
         </span>
 
-        <p className="flex-1 text-sm leading-relaxed">
+        <p className="flex-1 text-sm font-medium leading-relaxed">
           {toast.message}
           {toast.count > 1 && (
-            <span
-              className={`ml-2 rounded-full px-1.5 py-0.5 text-[11px] font-bold tnum ${
-                toast.tone === 'success' || toast.tone === 'info'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-slate-200 text-ink-700'
-              }`}
-            >
+            <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[11px] font-bold tnum ${tone.badge}`}>
               ×{toast.count}
             </span>
           )}
@@ -168,9 +194,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         <button
           onClick={onDismiss}
           aria-label="Dismiss notification"
-          className={`-mr-1 shrink-0 rounded p-1 text-lg leading-none opacity-60 transition hover:opacity-100 ${
-            toast.tone === 'success' || toast.tone === 'info' ? 'text-white' : 'text-ink-600'
-          }`}
+          className="-mr-1 shrink-0 rounded p-1 text-lg leading-none opacity-70 transition hover:opacity-100"
         >
           ×
         </button>

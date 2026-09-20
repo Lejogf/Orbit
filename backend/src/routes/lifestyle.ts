@@ -2,6 +2,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { splitSummary } from '../services/split.js';
+import { mongoStatus } from '../services/mongo.js';
 import { asyncRoute, param, sendOk } from '../lib/http.js';
 import { requireCustomer } from '../middleware/session.js';
 import { getSpendingReport } from '../services/insights.js';
@@ -10,12 +12,15 @@ import {
   checkBookingPrice,
   listBookings,
   listOffers,
+  cancelBooking,
+  flightOptions,
+  quoteCancelBooking,
   quoteTrip,
   rewardsSummary,
   setOfferActivation,
   type TripRequest,
 } from '../services/travel.js';
-import { AIRPORTS, cityFor, forecastPrice, searchFlights, searchHotels } from '../features/travel.js';
+import { AIRPORTS, cityFor, forecastPrice, searchHotels } from '../features/travel.js';
 import { daysBetween } from '../lib/utils.js';
 import { parseReceiptText } from '../features/receipt.js';
 import { computeShares, listSplits, markSharePaid, saveSplit } from '../services/split.js';
@@ -75,7 +80,7 @@ lifestyleRouter.get(
     sendOk(res, {
       search: { ...search, fromCity: cityFor(search.from), toCity: cityFor(search.to) },
       forecast: forecastPrice(Math.max(0, daysBetween(today, new Date(`${search.date}T00:00:00Z`)))),
-      options: searchFlights(search, today),
+      ...(await flightOptions(search, today)),
     });
   }),
 );
@@ -124,6 +129,24 @@ lifestyleRouter.post(
     const customer = await requireCustomer(req);
     const { demo } = z.object({ demo: z.boolean().default(false) }).parse(req.body ?? {});
     sendOk(res, await checkBookingPrice(prisma, customer.id, param(req, 'id'), demo));
+  }),
+);
+
+// The fee is quoted before anything is cancelled: nobody should discover what
+// a cancellation costs by cancelling.
+lifestyleRouter.get(
+  '/travel/bookings/:id/cancellation',
+  asyncRoute(async (req, res) => {
+    const customer = await requireCustomer(req);
+    sendOk(res, await quoteCancelBooking(prisma, customer.id, param(req, 'id')));
+  }),
+);
+
+lifestyleRouter.post(
+  '/travel/bookings/:id/cancel',
+  asyncRoute(async (req, res) => {
+    const customer = await requireCustomer(req);
+    sendOk(res, await cancelBooking(prisma, customer.id, param(req, 'id')));
   }),
 );
 
@@ -211,5 +234,17 @@ lifestyleRouter.post(
   asyncRoute(async (req, res) => {
     const customer = await requireCustomer(req);
     sendOk(res, await markSharePaid(prisma, customer.id, param(req, 'id')));
+  }),
+);
+
+/**
+ * Who you split bills with most and what is still outstanding with each —
+ * an Atlas aggregation over the nested people in every split document.
+ */
+lifestyleRouter.get(
+  '/split/summary',
+  asyncRoute(async (req, res) => {
+    const customer = await requireCustomer(req);
+    sendOk(res, { ...(await splitSummary(customer.id)), store: mongoStatus() });
   }),
 );

@@ -164,7 +164,7 @@ export default function PlanPickerPage({ params }: { params: Promise<{ transacti
               {percent(chosen.affordability.ratioBefore)} → {percent(chosen.affordability.obligationRatio)}
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+          <div className="h-2 overflow-hidden rounded-full bg-line-strong">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 !chosen.affordability.affordable
@@ -202,7 +202,7 @@ export default function PlanPickerPage({ params }: { params: Promise<{ transacti
             <dd className="mt-1.5 text-lg font-semibold text-ink-900 tnum">
               {formatCents(chosen.creditImpact.monthlyObligationsBeforeCents)}
               <span className="mx-2 text-ink-400" aria-label="changes to">→</span>
-              <span className="text-amber-700">
+              <span className="text-warn-700">
                 {formatCents(chosen.creditImpact.monthlyObligationsAfterCents)}
               </span>
             </dd>
@@ -252,14 +252,14 @@ function TermCard({
       title={quote.unavailableReason ?? undefined}
       className={`rounded-xl border p-4 text-left transition ${
         selected
-          ? 'border-ink-900 bg-ink-900 text-white shadow-lg'
+          ? 'border-ink-900 bg-ink-900 text-canvas shadow-lg'
           : quote.available
             ? 'border-line bg-surface hover:border-ink-300'
             : 'cursor-not-allowed border-line bg-surface-sunken opacity-50'
       }`}
     >
       <div className="flex items-baseline justify-between">
-        <span className={`text-lg font-semibold tnum ${selected ? 'text-white' : 'text-ink-900'}`}>
+        <span className={`text-lg font-semibold tnum ${selected ? 'text-canvas' : 'text-ink-900'}`}>
           {quote.termMonths}
         </span>
         <span className={`text-[11px] font-medium ${selected ? 'text-ink-200' : 'text-ink-600'}`}>
@@ -267,7 +267,7 @@ function TermCard({
         </span>
       </div>
 
-      <p className={`mt-2 text-xl font-semibold tracking-tight tnum ${selected ? 'text-white' : 'text-ink-900'}`}>
+      <p className={`mt-2 text-xl font-semibold tracking-tight tnum ${selected ? 'text-canvas' : 'text-ink-900'}`}>
         {formatCents(quote.monthlyPaymentCents)}
       </p>
 

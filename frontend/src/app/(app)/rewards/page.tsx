@@ -46,11 +46,11 @@ export default function RewardsPage() {
       ) : (
         <>
           {/* Balance */}
-          <section className="rounded-2xl bg-accent-sheen p-6 text-white shadow-raised">
+          <section className="rounded-2xl bg-accent-sheen p-6 text-on-accent shadow-raised">
             <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] opacity-80">Points balance</p>
             <p className="mt-1.5 hero-number">{data.points.toLocaleString('en-US')}</p>
             <p className="mt-2 text-lg font-semibold">= {formatCents(data.valueCents)} in cash</p>
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-white/25 pt-4 text-sm">
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-canvas/25 pt-4 text-sm">
               <span className="opacity-90">+{data.earnedThisMonth.toLocaleString('en-US')} earned this month</span>
               <span className="opacity-90">On {TIER_LABEL[data.tier] ?? 'your card'}</span>
             </div>

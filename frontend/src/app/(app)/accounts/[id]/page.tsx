@@ -283,7 +283,7 @@ function CardControls({ account, onChange }: { account: AccountSummary; onChange
       <h2 className="text-sm font-semibold text-ink-900">Card controls</h2>
 
       <div
-        className={`mt-4 rounded-2xl p-5 text-white transition-colors ${
+        className={`mt-4 rounded-2xl p-5 text-canvas transition-colors ${
           account.isLocked ? 'bg-ink-900' : 'bg-ink-700'
         }`}
       >

@@ -4,7 +4,7 @@
 // server and charges what it finds. The card must be unlocked and have the
 // available credit, exactly as a real authorisation would require.
 
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import { ApiError } from '../lib/http.js';
 import { centsToDollars, daysBetween, formatCents } from '../lib/utils.js';
 import { nessie } from '../nessie/client.js';
@@ -13,6 +13,7 @@ import {
   cityFor,
   forecastPrice,
   optimizePayment,
+  quoteCancellation,
   priceDropRefund,
   rankOffers,
   repriceBooking,
@@ -21,6 +22,8 @@ import {
   type FlightSearch,
   type PaymentOption,
 } from '../features/travel.js';
+import { recordActivity } from './documents.js';
+import { flightSearchStatus, liveFlights } from './flightSearch.js';
 import { notifyCharge, raiseAlert } from './notify.js';
 import { earnOnPurchase } from './rewards.js';
 
@@ -63,9 +66,27 @@ export type TripRequest =
   | { kind: 'hotel'; search: { city: string; checkIn: string; nights: number }; optionId: string };
 
 /** Resolves the chosen option server-side, so the price can't be tampered with. */
-function resolveTrip(trip: TripRequest, today: Date) {
+/**
+ * The flights for one search: live fares from SerpApi when a key is configured
+ * and the route returns something, and the generated inventory otherwise.
+ *
+ * Both paths are cached by their own layer, so resolving a booking by its
+ * option id re-reads the same list the customer chose from rather than paying
+ * for a second search.
+ */
+export async function flightOptions(search: FlightSearch, today: Date) {
+  const live = await liveFlights(search);
+  return {
+    options: live ?? searchFlights(search, today),
+    source: (live ? 'live' : 'generated') as 'live' | 'generated',
+    provider: flightSearchStatus(),
+  };
+}
+
+async function resolveTrip(trip: TripRequest, today: Date) {
   if (trip.kind === 'flight') {
-    const option = searchFlights(trip.search, today).find((f) => f.id === trip.optionId);
+    const { options } = await flightOptions(trip.search, today);
+    const option = options.find((f) => f.id === trip.optionId);
     if (!option) throw ApiError.badRequest('That flight is no longer available. Search again.');
     return {
       priceCents: option.priceCents,
@@ -87,7 +108,7 @@ function resolveTrip(trip: TripRequest, today: Date) {
 }
 
 export async function quoteTrip(prisma: PrismaClient, customerId: string, trip: TripRequest, today = new Date()) {
-  const resolved = resolveTrip(trip, today);
+  const resolved = await resolveTrip(trip, today);
   const rewards = await rewardsSummary(prisma, customerId);
   const advice = optimizePayment({
     priceCents: resolved.priceCents,
@@ -384,4 +405,164 @@ export async function setOfferActivation(prisma: PrismaClient, customerId: strin
     await prisma.offerActivation.deleteMany({ where: { customerId, offerId } });
   }
   return listOffers(prisma, customerId);
+}
+
+// --- cancelling a trip ---------------------------------------------------
+
+/**
+ * What cancelling would cost, without cancelling anything.
+ *
+ * This exists as its own call so the fee can be shown on the confirmation
+ * screen. Nobody should find out what a cancellation costs by cancelling.
+ */
+export async function quoteCancelBooking(
+  prisma: PrismaClient,
+  customerId: string,
+  bookingId: string,
+  now = new Date(),
+) {
+  const booking = await prisma.travelBooking.findFirst({ where: { id: bookingId, customerId } });
+  if (!booking) throw ApiError.notFound('Booking');
+  if (booking.status !== 'booked') throw ApiError.badRequest('This booking has already been cancelled.');
+
+  return {
+    booking: serializeBooking(booking),
+    quote: quoteCancellation({
+      kind: booking.kind,
+      paidCardCents: booking.paidCardCents,
+      paidMilesCents: booking.paidMilesCents,
+      refundedCents: booking.refundedCents,
+      bookedAt: booking.createdAt,
+      departsAt: booking.departsAt,
+      now,
+    }),
+  };
+}
+
+/**
+ * Cancel the trip and put the money back.
+ *
+ * Everything moves in one transaction: the card is credited, the fee is posted
+ * as its own line so it is visible rather than netted away, the miles spent are
+ * returned, and the miles *earned* on the booking are taken back — you do not
+ * keep the reward for a trip you did not take.
+ */
+export async function cancelBooking(
+  prisma: PrismaClient,
+  customerId: string,
+  bookingId: string,
+  now = new Date(),
+) {
+  const booking = await prisma.travelBooking.findFirst({ where: { id: bookingId, customerId } });
+  if (!booking) throw ApiError.notFound('Booking');
+  if (booking.status !== 'booked') throw ApiError.badRequest('This booking has already been cancelled.');
+
+  const quote = quoteCancellation({
+    kind: booking.kind,
+    paidCardCents: booking.paidCardCents,
+    paidMilesCents: booking.paidMilesCents,
+    refundedCents: booking.refundedCents,
+    bookedAt: booking.createdAt,
+    departsAt: booking.departsAt,
+    now,
+  });
+
+  // Typed explicitly: inferred from its first element, the array would refuse
+  // every other model's promise.
+  const writes: Prisma.PrismaPromise<unknown>[] = [
+    prisma.travelBooking.update({ where: { id: booking.id }, data: { status: 'cancelled' } }),
+  ];
+
+  // A credit-card refund reduces the balance owed.
+  if (quote.refundCents > 0) {
+    writes.push(
+      prisma.account.update({ where: { id: booking.accountId }, data: { balanceCents: { decrement: quote.refundCents } } }),
+      prisma.transaction.create({
+        data: {
+          accountId: booking.accountId,
+          source: 'deposit',
+          amountCents: quote.refundCents,
+          description: `Refund — ${booking.title}`,
+          postedAt: now,
+          category: 'Travel',
+        },
+      }),
+    );
+  }
+
+  // The fee is posted separately, as a charge with its own name. Netting it
+  // against the refund would hide it in a number nobody can check.
+  if (quote.feeCents > 0) {
+    writes.push(
+      prisma.transaction.create({
+        data: {
+          accountId: booking.accountId,
+          source: 'purchase',
+          amountCents: -quote.feeCents,
+          description: `Cancellation fee — ${booking.title}`,
+          postedAt: now,
+          category: 'Travel',
+        },
+      }),
+    );
+  }
+
+  // Miles spent come back in full; miles earned on the trip go away again.
+  if (quote.milesRefunded > 0) {
+    writes.push(
+      prisma.pointsEntry.create({
+        data: {
+          customerId,
+          points: quote.milesRefunded,
+          kind: 'adjustment',
+          reason: `Miles returned — ${booking.title} cancelled`,
+        },
+      }),
+      prisma.account.update({ where: { id: booking.accountId }, data: { rewardsCents: { increment: quote.milesRefunded } } }),
+    );
+  }
+  if (booking.milesEarned > 0) {
+    writes.push(
+      prisma.pointsEntry.create({
+        data: {
+          customerId,
+          points: -booking.milesEarned,
+          kind: 'adjustment',
+          reason: `Miles reversed — ${booking.title} cancelled`,
+        },
+      }),
+      prisma.account.update({ where: { id: booking.accountId }, data: { rewardsCents: { decrement: booking.milesEarned } } }),
+    );
+  }
+
+  await prisma.$transaction(writes);
+
+  // Best effort, as everywhere: a Nessie failure never blocks a cancellation.
+  if (booking.nessiePurchaseId) {
+    try {
+      await nessie.deletePurchase(booking.nessiePurchaseId);
+    } catch (error) {
+      console.warn('[travel] Nessie purchase delete failed:', (error as Error).message);
+    }
+  }
+
+  void recordActivity(customerId, 'trip_cancelled', `Cancelled ${booking.title}`, {
+    refundCents: quote.refundCents,
+    feeCents: quote.feeCents,
+    milesRefunded: quote.milesRefunded,
+  });
+  await raiseAlert(prisma, {
+    customerId,
+    kind: 'trip_cancelled',
+    title: `Cancelled: ${booking.title}`,
+    body:
+      quote.feeCents > 0
+        ? `${formatCents(quote.refundCents)} is back on your card. We kept a ${formatCents(quote.feeCents)} cancellation fee — ${quote.reason}`
+        : `${formatCents(quote.refundCents)} is back on your card, with no fee.${quote.milesRefunded > 0 ? ` Your ${quote.milesRefunded.toLocaleString('en-US')} miles have been returned.` : ''}`,
+    amountCents: quote.refundCents,
+    href: '/travel?tab=trips',
+  });
+
+  const updated = await prisma.travelBooking.findUniqueOrThrow({ where: { id: booking.id } });
+  return { booking: serializeBooking(updated), quote };
 }

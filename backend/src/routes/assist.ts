@@ -10,6 +10,7 @@ import { buildOriContext } from '../services/insights.js';
 import { closeCase, createCase, getCase, listCases, postMessage } from '../services/support.js';
 import { notifyCharge, raiseAlert, retryUndelivered, vapidKeys } from '../services/notify.js';
 import { earnOnPurchase } from '../services/rewards.js';
+import { geminiStatus, navigate, phrase } from '../services/gemini.js';
 import { formatCents } from '../lib/utils.js';
 
 export const assistRouter = Router();
@@ -39,7 +40,52 @@ assistRouter.post(
     const body = enoSchema.parse(req.body);
     const context = await buildOriContext(prisma, customer, body.page);
     const state = body.state ? { ...INITIAL_STATE, ...body.state, lastIntent: body.state.lastIntent as typeof INITIAL_STATE.lastIntent } : INITIAL_STATE;
-    sendOk(res, respond(body.message, context, state));
+
+    // The rule engine answers first, always. It owns the intent, the customer's
+    // real figures, and any proposal. Gemini is only ever asked to improve the
+    // wording, or — when the engine did not understand — to work out which
+    // screen was wanted. It is never allowed to invent an action.
+    const reply = respond(body.message, context, state);
+
+    if (reply.intent === 'fallback') {
+      const routed = await navigate(body.message, context);
+      if (routed) {
+        sendOk(res, {
+          ...reply,
+          // Understood after all, so the miss counter goes back to zero and the
+          // "two misses and you get a person" rule is not triggered unfairly.
+          intent: routed.href ? 'navigate' : reply.intent,
+          state: { ...reply.state, misses: routed.href ? 0 : reply.state.misses },
+          text: routed.text,
+          links: routed.href ? [{ label: 'Take me there', href: routed.href }] : reply.links,
+          effect: routed.href ? { type: 'navigate' as const, href: routed.href } : reply.effect,
+          suggestions: routed.suggestions.length > 0 ? routed.suggestions : reply.suggestions,
+          // A successful route is not a miss, so the "I didn't understand, here
+          // is a person" offer is withdrawn — unless the topic itself needs one.
+          handoff: routed.needsHuman
+            ? { topic: 'General help', urgent: true, reason: 'sensitive' }
+            : routed.href
+              ? null
+              : reply.handoff,
+        });
+        return;
+      }
+    }
+
+    sendOk(res, await phrase(reply, body.message, context.firstName));
+  }),
+);
+
+/** What is actually wired up behind Ori. Shown in Settings, not guessed at. */
+assistRouter.get(
+  '/ori/status',
+  asyncRoute(async (req, res) => {
+    await requireCustomer(req);
+    sendOk(res, {
+      ...geminiStatus(),
+      engine: 'rule-based, with Gemini for phrasing and navigation',
+      note: 'Every action is decided by Orbit and confirmed by you. The model never moves money.',
+    });
   }),
 );
 

@@ -29,14 +29,14 @@ You can also register your own account. A new account starts empty and offers to
 load its own copy of the sample data — accounts are fully isolated from each
 other.
 
-| Command | What it does |
-|---|---|
-| `npm run dev` | Runs backend and frontend together |
-| `npm test` | 155 unit tests across both workspaces |
-| `npm run seed` | Idempotent — re-running only adds what's missing |
-| `npm run seed -- --reset` | Wipes subscriptions, plans and alerts for a clean demo |
-| `npm run verify:nessie` | Probes every Nessie endpoint and reports what's really there |
-| `npm run clean` | Clears build caches |
+| Command                   | What it does                                                 |
+| ------------------------- | ------------------------------------------------------------ |
+| `npm run dev`             | Runs backend and frontend together                           |
+| `npm test`                | 155 unit tests across both workspaces                        |
+| `npm run seed`            | Idempotent — re-running only adds what's missing             |
+| `npm run seed -- --reset` | Wipes subscriptions, plans and alerts for a clean demo       |
+| `npm run verify:nessie`   | Probes every Nessie endpoint and reports what's really there |
+| `npm run clean`           | Clears build caches                                          |
 
 > **Stop `npm run dev` before running `npm run build`.** Both write to
 > `frontend/.next`, and a production build on top of a running dev server
@@ -78,13 +78,13 @@ It also flags:
 
 Per subscription you can:
 
-| Action | Effect |
-|---|---|
-| **Ask me first** | Charges are declined and you get an approve / keep-blocked alert. Approving lets through exactly one charge. |
-| **Block permanently** | Card-level merchant block. Counts toward Money Saved. |
-| **Virtual card** | A per-merchant number. Lock to pause, delete to cancel outright. |
-| **Remind me** | 1, 3, 7 or any custom number of days before renewal, by app notification, email or text. |
-| **Simulate renewal** | Demo mode: pushes a fake charge through the Guard rules live. Also available inline from the list as "Test charge". |
+| Action                | Effect                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Ask me first**      | Charges are declined and you get an approve / keep-blocked alert. Approving lets through exactly one charge.        |
+| **Block permanently** | Card-level merchant block. Counts toward Money Saved.                                                               |
+| **Virtual card**      | A per-merchant number. Lock to pause, delete to cancel outright.                                                    |
+| **Remind me**         | 1, 3, 7 or any custom number of days before renewal, by app notification, email or text.                            |
+| **Simulate renewal**  | Demo mode: pushes a fake charge through the Guard rules live. Also available inline from the list as "Test charge". |
 
 **Navigation keeps your place, briefly.** Each section remembers where you were,
 the way a native tab bar keeps a stack per tab. Drill into a card, jump to
@@ -94,7 +94,7 @@ the top of the list.
 The memory expires **30 seconds** after you leave a section. A position held
 indefinitely stops being helpful — returning much later and landing deep inside a
 detail page is disorienting, because the context that put you there is gone. The
-clock starts when you *leave*, so reading a page for a while doesn't count
+clock starts when you _leave_, so reading a page for a while doesn't count
 against you. Tapping the section you're already in resets it to the top.
 
 **Repeated alerts collapse.** A merchant retrying a declined charge six times
@@ -109,11 +109,11 @@ through. The account screen explains this rather than leaving it to be discovere
 
 **Virtual card states**, which are deliberately distinct:
 
-| | Effect |
-|---|---|
-| **Lock** | Pauses charges. Same number, reversible at any time. |
-| **Use my real card** | Stops using a virtual number. The subscription carries on unaffected. |
-| **Delete** | Destroys the number permanently, then asks what the subscription should do. |
+|                      | Effect                                                                      |
+| -------------------- | --------------------------------------------------------------------------- |
+| **Lock**             | Pauses charges. Same number, reversible at any time.                        |
+| **Use my real card** | Stops using a virtual number. The subscription carries on unaffected.       |
+| **Delete**           | Destroys the number permanently, then asks what the subscription should do. |
 
 Deleting a number and cancelling a subscription are **separate decisions**. Burning
 a card so a free trial can't convert, while keeping the option to subscribe
@@ -137,7 +137,7 @@ own authenticated channel costs nothing to send and can deep-link to the Guard
 controls, whereas SMS reproduces exactly the pattern phishing relies on — banks
 train customers that they will never be sent a link by text.
 
-**Cost over time.** Each subscription shows what it has *already* taken (from real
+**Cost over time.** Each subscription shows what it has _already_ taken (from real
 transaction history), what the next 12 months cost, and the 5-year figure at
 today's price. What has already happened is more persuasive than a projection.
 
@@ -225,11 +225,11 @@ idempotency compares whole dollars for the same reason.
 
 ### Other quirks
 
-1. **One malformed bill breaks the whole collection.** Nessie's Bill *read* model
+1. **One malformed bill breaks the whole collection.** Nessie's Bill _read_ model
    requires `payment_date`, `recurring_date` and `upcoming_payment_date`, but only
    ever populates the third. A bill created without the first two is writable but
    unreadable — and since it fails while serialising the list, `GET /bills` then
-   returns 400 for that account *permanently*. `NessieBillCreate` makes both
+   returns 400 for that account _permanently_. `NessieBillCreate` makes both
    fields mandatory so it can't happen.
 
 2. **Transfers can't record a destination.** `POST /transfers` accepts only
@@ -244,7 +244,7 @@ idempotency compares whole dollars for the same reason.
 5. **Empty collections 404 instead of returning `[]`.** The client treats a 404 on
    a list endpoint as an empty list.
 
-6. **No DELETE for purchases** (403 — no such route). Transfers *can* be deleted.
+6. **No DELETE for purchases** (403 — no such route). Transfers _can_ be deleted.
 
 7. **`/merchants` is global**, shared across every API key, so the provider narrows
    it to merchants this customer actually transacted with.
@@ -262,15 +262,15 @@ loans with the credit score attached.
 
 ## Demo script
 
-1. **Dashboard.** Safe to Spend, and an alert: *Blue Apron free trial converts in
-   2 days at $71.92*.
+1. **Dashboard.** Safe to Spend, and an alert: _Blue Apron free trial converts in
+   2 days at $71.92_.
 2. **Open Netflix → turn on "Ask me first" → Simulate renewal.** The charge is
    declined. The alert badge increments.
 3. **Alerts → Approve $15.49.** It goes through. Simulate again — declined, because
    an approval covers exactly one charge.
 4. **Subscriptions.** Spot Netflix + Hulu overlapping. Block Hulu → Money Saved
    jumps to $215.88/yr and the monthly total drops.
-5. **Block Peloton** (*"looks unused"* — paid 7 months, unopened for 5). Its charge
+5. **Block Peloton** (_"looks unused"_ — paid 7 months, unopened for 5). Its charge
    falls before the next payday, so **Safe to Spend rises by exactly $12.99** the
    moment you block it. That's the cross-feature link worth pointing at.
 6. **Accounts → Quicksilver → "Splittable only" → the $599.99 Best Buy purchase.**
@@ -291,14 +291,14 @@ npm test
 
 155 tests — 139 on backend business logic, 16 on frontend navigation state:
 
-| Area | What's covered |
-|---|---|
-| Detection (33) | Cadence classification, amount tolerance, price-increase change-point detection, trials, duplicates — plus a suite asserting it finds all 10 planted scenarios in the real seed data and ignores everyday spending |
-| Pricing (30) | Rates per band, instalments summing exactly to the total, term limits, eligibility, affordability thresholds, credit impact |
-| Guard (15) | Charge decisions, one-time approval semantics, virtual card precedence |
-| Safe to Spend (20) | Payday inference, commitment windows, blocking freeing money immediately |
-| Utilities (41) | Money conversion, date arithmetic, the demo dataset's guarantees |
-| Section memory (20) | TTL boundaries, per-section independence, and rejecting malformed or outdated stored state |
+| Area                | What's covered                                                                                                                                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Detection (33)      | Cadence classification, amount tolerance, price-increase change-point detection, trials, duplicates — plus a suite asserting it finds all 10 planted scenarios in the real seed data and ignores everyday spending |
+| Pricing (30)        | Rates per band, instalments summing exactly to the total, term limits, eligibility, affordability thresholds, credit impact                                                                                        |
+| Guard (15)          | Charge decisions, one-time approval semantics, virtual card precedence                                                                                                                                             |
+| Safe to Spend (20)  | Payday inference, commitment windows, blocking freeing money immediately                                                                                                                                           |
+| Utilities (41)      | Money conversion, date arithmetic, the demo dataset's guarantees                                                                                                                                                   |
+| Section memory (20) | TTL boundaries, per-section independence, and rejecting malformed or outdated stored state                                                                                                                         |
 
 The detection and pricing suites are the ones worth reading — they encode the
 actual product rules.

@@ -3,16 +3,22 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { asyncRoute, param, sendOk } from '../lib/http.js';
+import { budgetHistory, budgetTrend } from '../services/documents.js';
+import { mongoStatus } from '../services/mongo.js';
 import { requireCustomer } from '../middleware/session.js';
 import { cardOffers, listCards, openCard, orderPhysicalCard } from '../services/cards.js';
 import { redeemPoints, rewardsOverview } from '../services/rewards.js';
 import { buy, instrumentDetail, investingOverview, requestTransferOut, sell } from '../services/investing.js';
 import {
   budgetOverview,
+  cancelInvite,
   createHousehold,
+  householdInvites,
+  inviteToHousehold,
   envelopeSuggestions,
   joinHousehold,
   leaveHousehold,
+  respondToInvite,
   saveBudget,
   saveEnvelopes,
 } from '../services/budget.js';
@@ -181,6 +187,34 @@ moneyRouter.put(
   }),
 );
 
+/**
+ * How the plan has changed month to month, from the Atlas snapshots.
+ *
+ * The relational Budget row holds only the current plan, so this is the one
+ * place the history lives. Without a cluster it returns an empty history and
+ * the section is simply not shown.
+ */
+moneyRouter.get(
+  '/budget/history',
+  asyncRoute(async (req, res) => {
+    const customer = await requireCustomer(req);
+    const [history, trend] = await Promise.all([budgetHistory(customer.id, 12), budgetTrend(customer.id)]);
+    sendOk(res, {
+      months: history.map((snapshot) => ({
+        month: snapshot.month,
+        method: snapshot.method,
+        monthlyIncomeCents: snapshot.monthlyIncomeCents,
+        safeDailyCents: snapshot.safeDailyCents,
+        surplusCents: snapshot.surplusCents,
+        runwayMonths: snapshot.runwayMonths,
+        envelopes: snapshot.envelopes ?? [],
+      })),
+      trend,
+      store: mongoStatus(),
+    });
+  }),
+);
+
 moneyRouter.post(
   '/budget/household',
   asyncRoute(async (req, res) => {
@@ -198,6 +232,48 @@ moneyRouter.post(
       .object({ code: z.string().trim().min(6).max(20), role: z.enum(['partner', 'teen', 'child']).default('partner') })
       .parse(req.body);
     sendOk(res, await joinHousehold(prisma, customer.id, body.code, body.role));
+  }),
+);
+
+// Inviting someone by username. The invite is an offer: it does nothing to
+// their money until they accept it.
+moneyRouter.get(
+  '/budget/household/invites',
+  asyncRoute(async (req, res) => {
+    const customer = await requireCustomer(req);
+    sendOk(res, await householdInvites(prisma, customer.id));
+  }),
+);
+
+moneyRouter.post(
+  '/budget/household/invites',
+  asyncRoute(async (req, res) => {
+    const customer = await requireCustomer(req);
+    const body = z
+      .object({
+        username: z.string().trim().min(1, 'Type a username.').max(40),
+        role: z.enum(['partner', 'teen', 'child']).default('partner'),
+        note: z.string().trim().max(200).optional(),
+      })
+      .parse(req.body);
+    sendOk(res, await inviteToHousehold(prisma, customer.id, body), 201);
+  }),
+);
+
+moneyRouter.post(
+  '/budget/household/invites/:id/respond',
+  asyncRoute(async (req, res) => {
+    const customer = await requireCustomer(req);
+    const { accept } = z.object({ accept: z.boolean() }).parse(req.body);
+    sendOk(res, await respondToInvite(prisma, customer.id, param(req, 'id'), accept));
+  }),
+);
+
+moneyRouter.post(
+  '/budget/household/invites/:id/cancel',
+  asyncRoute(async (req, res) => {
+    const customer = await requireCustomer(req);
+    sendOk(res, await cancelInvite(prisma, customer.id, param(req, 'id')));
   }),
 );
 

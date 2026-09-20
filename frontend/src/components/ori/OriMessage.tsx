@@ -35,7 +35,7 @@ export function OriMessage({
   if (entry.from === 'user') {
     return (
       <div className="flex justify-end">
-        <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-ink-600 px-3.5 py-2.5 text-sm text-white">{entry.text}</p>
+        <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-ink-600 px-3.5 py-2.5 text-sm text-canvas">{entry.text}</p>
       </div>
     );
   }
@@ -58,7 +58,7 @@ export function OriMessage({
         <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-900">{reply.text}</p>
 
         {reply.facts.length > 0 && (
-          <dl className="mt-2.5 divide-y divide-slate-200 rounded-xl bg-surface px-3">
+          <dl className="mt-2.5 divide-y divide-line rounded-xl bg-surface px-3">
             {reply.facts.map((fact) => (
               <div key={`${fact.label}-${fact.value}`} className="flex items-baseline justify-between gap-3 py-2 text-sm">
                 <dt className="min-w-0 truncate text-ink-600">{fact.label}</dt>
@@ -137,7 +137,7 @@ export function OriMessage({
                 key={channel}
                 onClick={() => onHandoff(channel, reply.handoff!.topic)}
                 className={`rounded-xl px-2 py-2 text-xs font-semibold transition ${
-                  channel === 'chat' ? 'bg-ink-600 text-white hover:bg-ink-700' : 'border border-ink-200 text-ink-700 hover:bg-navy-50'
+                  channel === 'chat' ? 'bg-ink-600 text-canvas hover:bg-ink-700' : 'border border-ink-200 text-ink-700 hover:bg-navy-50'
                 }`}
               >
                 {label}

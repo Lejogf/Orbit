@@ -5,7 +5,16 @@
 // and what it costs — and nothing else. Rewards get richer as the tier rises,
 // which is the honest reason to move up.
 
-export type CardTier = 'start' | 'move' | 'rise' | 'summit' | 'business';
+export type CardTier = 'start' | 'move' | 'rise' | 'summit' | 'business' | 'debit';
+
+/**
+ * What a card spends. The distinction people actually care about: a debit card
+ * spends money you already have, a credit card spends the bank's and bills you.
+ * It changes what "available" means, whether a purchase can be split over time,
+ * and whether using it builds credit — so the app says which, on the card face
+ * and everywhere a card is listed.
+ */
+export type CardFunding = 'debit' | 'credit';
 
 export interface EarnRule {
   /** Transaction category this rate applies to. 'everything' is the base rate. */
@@ -18,6 +27,7 @@ export interface EarnRule {
 export interface CardProductSpec {
   id: string;
   tier: CardTier;
+  funding: CardFunding;
   name: string;
   tagline: string;
   kind: 'personal' | 'business';
@@ -39,6 +49,7 @@ export const CARD_PRODUCTS: CardProductSpec[] = [
   {
     id: 'orbit-start',
     tier: 'start',
+    funding: 'credit',
     name: 'Orbit Start',
     tagline: 'Build credit from zero, with no fee.',
     kind: 'personal',
@@ -53,6 +64,7 @@ export const CARD_PRODUCTS: CardProductSpec[] = [
   {
     id: 'orbit-move',
     tier: 'move',
+    funding: 'credit',
     name: 'Orbit Move',
     tagline: 'Flat rewards on everyday spending.',
     kind: 'personal',
@@ -70,6 +82,7 @@ export const CARD_PRODUCTS: CardProductSpec[] = [
   {
     id: 'orbit-rise',
     tier: 'rise',
+    funding: 'credit',
     name: 'Orbit Rise',
     tagline: 'For the categories you actually spend in.',
     kind: 'personal',
@@ -89,6 +102,7 @@ export const CARD_PRODUCTS: CardProductSpec[] = [
   {
     id: 'orbit-summit',
     tier: 'summit',
+    funding: 'credit',
     name: 'Orbit Summit',
     tagline: 'Metal card, lounge access, best redemption value.',
     kind: 'personal',
@@ -107,6 +121,7 @@ export const CARD_PRODUCTS: CardProductSpec[] = [
   {
     id: 'orbit-business',
     tier: 'business',
+    funding: 'credit',
     name: 'Orbit Business',
     tagline: 'Separate your business spending, keep the receipts straight.',
     kind: 'business',
@@ -123,12 +138,57 @@ export const CARD_PRODUCTS: CardProductSpec[] = [
   },
 ];
 
+
+/**
+ * The debit card attached to checking. It is not applied for and not in the
+ * catalogue — you get one when you open an account — so it lives beside
+ * CARD_PRODUCTS rather than in it, and never appears among the offers.
+ *
+ * It is deliberately a different material and a cooler colour than any credit
+ * card, so the two are told apart at a glance and not only by the word.
+ */
+export const DEBIT_CARD: CardProductSpec = {
+  id: 'orbit-debit',
+  tier: 'debit',
+  funding: 'debit',
+  name: 'Orbit Debit',
+  tagline: 'Spends the money already in your checking account.',
+  kind: 'personal',
+  annualFeeCents: 0,
+  startingLimitCents: 0,
+  minScore: 0,
+  art: { from: '#2b4a63', to: '#0d1a24', ink: 'light', texture: 'matte' },
+  earn: [],
+  perks: [
+    'Spends your own money, so there is nothing to pay back',
+    'No annual fee and no interest, ever',
+    'Does not build credit — that is what a credit card is for',
+  ],
+  redemptions: [],
+};
+
+/**
+ * A card spec by id, including the debit card — which is not in CARD_PRODUCTS
+ * because it is not applied for, but is still a card someone holds. Leaving it
+ * out made every lookup on a debit account return null.
+ */
 export function cardById(id: string): CardProductSpec | null {
+  if (id === DEBIT_CARD.id) return DEBIT_CARD;
   return CARD_PRODUCTS.find((c) => c.id === id) ?? null;
 }
 
-/** Points per dollar for a purchase on this card, by category. */
-export function earnRateFor(card: CardProductSpec, category: string): EarnRule {
+/**
+ * Points per dollar for a purchase on this card, by category.
+ *
+ * A card with no earn rules — the debit card — earns nothing, and says so with
+ * a rate of 0 rather than falling through to the 1x default. Paying with debit
+ * really does earn you nothing, and pretending otherwise would put points in
+ * the "earn more" tips that the customer could never collect.
+ */
+export function earnRateFor(card: CardProductSpec | null, category: string): EarnRule {
+  if (!card || card.earn.length === 0) {
+    return { category: 'everything', rate: 0, label: 'No points on this card' };
+  }
   return (
     card.earn.find((rule) => rule.category.toLowerCase() === category.toLowerCase()) ??
     card.earn.find((rule) => rule.category === 'everything') ?? { category: 'everything', rate: 1, label: '1% back' }

@@ -58,8 +58,15 @@ export async function earnOnPurchase(
 /** The tier that decides which redemptions are open: the best card held. */
 async function bestTier(prisma: PrismaClient, customerId: string): Promise<string> {
   const cards = await listCards(prisma, customerId);
+  // 'debit' is deliberately absent: it has no redemptions, so it can never be
+  // the tier that decides which are open.
   const order = ['start', 'move', 'business', 'rise', 'summit'];
-  return cards.map((c) => c.tier).sort((a, b) => order.indexOf(b) - order.indexOf(a))[0] ?? 'start';
+  return (
+    cards
+      .filter((c) => c.funding === 'credit')
+      .map((c) => c.tier)
+      .sort((a, b) => order.indexOf(b) - order.indexOf(a))[0] ?? 'start'
+  );
 }
 
 export async function rewardsOverview(prisma: PrismaClient, customerId: string) {
@@ -84,7 +91,12 @@ export async function rewardsOverview(prisma: PrismaClient, customerId: string) 
   const monthlyByCategory = [...byCategory.entries()].map(([category, cents]) => ({ category, cents }));
 
   const earnedThisMonth = entries.filter((e) => e.kind === 'earn' && e.createdAt >= since).reduce((s, e) => s + e.points, 0);
-  const primary = cardById(cards[0]?.productId ?? 'orbit-move')!;
+
+  // Rewards are a credit-card feature. `cards` now leads with the debit card,
+  // which earns nothing, so comparing every other card against it would claim
+  // an "upgrade" on all of them.
+  const creditCards = cards.filter((card) => card.funding === 'credit');
+  const primary = cardById(creditCards[0]?.productId ?? 'orbit-move')!;
 
   return {
     points,
@@ -93,9 +105,19 @@ export async function rewardsOverview(prisma: PrismaClient, customerId: string) 
     earnedThisMonth,
     redemptions: valueTable(points, tier),
     boosters: BOOSTERS,
-    tips: earnMoreTips({ card: primary, monthlyByCategory, allCards: CARD_PRODUCTS }),
+    tips: earnMoreTips({
+      card: primary,
+      monthlyByCategory,
+      allCards: CARD_PRODUCTS,
+      held: creditCards.map((card) => card.productId),
+    }),
     /** What each card earns, so the customer knows which to reach for. */
-    earnRates: cards.map((card) => ({ accountId: card.accountId, name: card.name, earn: card.earn })),
+    earnRates: cards.map((card) => ({
+      accountId: card.accountId,
+      name: card.name,
+      funding: card.funding,
+      earn: card.earn,
+    })),
     history: entries.map((entry) => ({
       id: entry.id,
       points: entry.points,

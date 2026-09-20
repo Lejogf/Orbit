@@ -96,13 +96,15 @@ const STRINGS = {
   'ori.title': ['Ori', 'Ori'],
   'ori.subtitle': ['Your money, explained', 'Tu dinero, explicado'],
   'ori.new': ['New chat', 'Chat nuevo'],
-  'ori.placeholder': ['Ask me anything about your money', 'Pregúntame sobre tu dinero'],
+  'ori.placeholder': ['Ask me anything…', 'Pregúntame lo que sea…'],
   'ori.send': ['Send', 'Enviar'],
   'ori.listen': ['Speak your question', 'Habla tu pregunta'],
   'ori.listening': ['Listening…', 'Escuchando…'],
   'ori.readAloud': ['Read answers aloud', 'Leer respuestas'],
   'ori.human': ['Talk to a human', 'Hablar con una persona'],
   'ori.close': ['Close', 'Cerrar'],
+  'ori.expand': ['Make this bigger', 'Hacerlo más grande'],
+  'ori.shrink': ['Make this smaller', 'Hacerlo más pequeño'],
 
   // --- accessibility quick panel ---
   'a11y.quick': ['Display', 'Pantalla'],

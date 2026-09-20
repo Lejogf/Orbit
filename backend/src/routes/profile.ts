@@ -2,6 +2,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { recordActivity, recentActivity, upsertProfile } from '../services/documents.js';
+import { mongoStatus } from '../services/mongo.js';
 import { ApiError, asyncRoute, param, sendOk } from '../lib/http.js';
 import { requireCustomer } from '../middleware/session.js';
 import { NAME_CHANGE_REASONS } from '../features/profileChange.js';
@@ -165,6 +167,39 @@ profileRouter.put(
       update: { accessibility: JSON.stringify(settings) },
       create: { customerId: customer.id, accessibility: JSON.stringify(settings) },
     });
+
+    // Mirrored into the customer's profile document, where support can read it
+    // before they join a chat — the needs travel with the person, not the page.
+    void upsertProfile(customer.id, {
+      displayName: `${customer.firstName} ${customer.lastName}`,
+      accessibility: settings as Record<string, unknown>,
+    });
+    void recordActivity(customer.id, 'accessibility_changed', 'Accessibility settings updated', settings as Record<string, unknown>);
+
     sendOk(res, settings);
+  }),
+);
+
+/**
+ * Everything that has happened on this account lately, from the Atlas activity
+ * stream. Not the ledger — that is Accounts. This is the "what did I change?"
+ * view: settings, invites, plans, locks.
+ */
+profileRouter.get(
+  '/profile/activity',
+  asyncRoute(async (req, res) => {
+    const customer = await requireCustomer(req);
+    const events = await recentActivity(customer.id, 50);
+    sendOk(res, {
+      events: events.map((e) => ({
+        kind: e.kind,
+        summary: e.summary,
+        detail: e.detail ?? null,
+        at: e.at instanceof Date ? e.at.toISOString() : String(e.at),
+      })),
+      // Says plainly when the stream is empty because there is no cluster,
+      // rather than implying nothing has happened.
+      store: mongoStatus(),
+    });
   }),
 );

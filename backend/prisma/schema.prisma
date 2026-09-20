@@ -89,6 +89,8 @@ model Customer {
   pointsEntries     PointsEntry[]
   budget            Budget?
   householdMembers  HouseholdMember[]
+  householdInvitesReceived HouseholdInvite[] @relation("InviteRecipient")
+  householdInvitesSent     HouseholdInvite[] @relation("InviteSender")
   payees            Payee[]
   scheduledPayments ScheduledPayment[]
   checkDeposits     CheckDeposit[]
@@ -782,6 +784,40 @@ model Household {
   createdAt    DateTime @default(now())
 
   members HouseholdMember[]
+  invites HouseholdInvite[]
+}
+
+/// An invitation to join a household, addressed to one person by username.
+///
+/// Sharing a budget means sharing what someone earns and spends, so it cannot
+/// be done to them — only offered. The invite sits here until they accept or
+/// decline, and the recipient is resolved to a customer id when it is SENT, so
+/// a later username change cannot redirect an outstanding invite to someone
+/// else.
+model HouseholdInvite {
+  id          String @id @default(cuid())
+  householdId String
+  /// Who it is for.
+  customerId  String
+  /// Who sent it.
+  invitedById String
+  /// partner | teen | child
+  role        String @default("partner")
+  /// pending | accepted | declined | cancelled
+  status      String @default("pending")
+  /// What the sender wanted to say. Optional, short.
+  note        String?
+
+  createdAt   DateTime  @default(now())
+  respondedAt DateTime?
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  customer  Customer  @relation("InviteRecipient", fields: [customerId], references: [id], onDelete: Cascade)
+  invitedBy Customer  @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  /// One live invite per household per person; re-inviting reuses the row.
+  @@unique([householdId, customerId])
+  @@index([customerId, status])
 }
 
 model HouseholdMember {

@@ -14,6 +14,12 @@ export interface PaymentCardProps {
   last4: string;
   holder: string;
   art: CardArt;
+  /**
+   * Debit or credit, printed on the card face the way a real one is. This is
+   * the distinction people actually need: a debit card spends money you have,
+   * a credit card spends the bank's and bills you for it.
+   */
+  funding?: 'debit' | 'credit';
   /** Shows the full number instead of the masked one. */
   revealedNumber?: string | null;
   expiry?: string;
@@ -36,6 +42,7 @@ export function PaymentCard({
   last4,
   holder,
   art,
+  funding,
   revealedNumber,
   expiry = '08/29',
   locked = false,
@@ -47,8 +54,22 @@ export function PaymentCard({
   const [tilt, setTilt] = useState({ x: 0, y: 0, active: false });
 
   const dims = size === 'lg' ? 'w-[21rem] text-[0.9375rem]' : size === 'sm' ? 'w-[13.5rem] text-[0.6875rem]' : 'w-[18rem] text-sm';
-  const ink = art.ink === 'dark' ? 'text-ink-900' : 'text-white';
-  const muted = art.ink === 'dark' ? 'text-ink-900/70' : 'text-white/70';
+  // The card is a physical object, so its ink does NOT follow the app theme —
+  // a card in your wallet looks the same at noon and at midnight. What it does
+  // follow is its own artwork: light ink on dark plastic, dark ink on pale
+  // metal. The muted tone was /70, which washed out over a gradient; /80 plus a
+  // faint shadow keeps the small print readable on every finish.
+  // These are literal colours, not theme tokens, and that is deliberate. The
+  // card's artwork is fixed hex (a pale metal Summit card is pale in both
+  // themes), so its ink must be fixed too. `text-ink-900` would have inverted
+  // with the theme and put white text on the pale metal card in dark mode.
+  const ink = art.ink === 'dark' ? 'text-[#0d1713]' : 'text-white';
+  const muted = art.ink === 'dark' ? 'text-[#0d1713]/75' : 'text-white/80';
+  const legible = art.ink === 'dark' ? '' : '[text-shadow:0_1px_2px_rgb(0_0_0_/_0.45)]';
+  const badge =
+    art.ink === 'dark'
+      ? 'bg-[#0d1713]/15 text-[#0d1713] ring-[#0d1713]/30'
+      : 'bg-white/20 text-white ring-white/35';
 
   const onMove = (event: React.PointerEvent) => {
     const box = ref.current?.getBoundingClientRect();
@@ -67,7 +88,7 @@ export function PaymentCard({
         background: `linear-gradient(135deg, ${art.from} 0%, ${art.to} 100%)`,
         transform: tilt.active ? `perspective(900px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(1.015)` : undefined,
       }}
-      className={`relative aspect-[1.586/1] shrink-0 overflow-hidden rounded-2xl p-5 shadow-float transition-transform duration-200 ease-spring after:pointer-events-none after:absolute after:inset-0 after:content-[''] ${TEXTURES[art.texture]} ${dims} ${ink} ${className}`}
+      className={`relative aspect-[1.586/1] shrink-0 overflow-hidden rounded-2xl p-5 shadow-float transition-transform duration-200 ease-spring after:pointer-events-none after:absolute after:inset-0 after:content-[''] ${TEXTURES[art.texture]} ${dims} ${ink} ${legible} ${className}`}
     >
       {/* Sheen */}
       <div className="pointer-events-none absolute inset-0 bg-glass-sheen opacity-70" aria-hidden="true" />
@@ -79,6 +100,13 @@ export function PaymentCard({
               {business ? 'Orbit Business' : 'Orbit'}
             </p>
             <p className="font-display text-[1.05em] font-bold leading-tight">{name}</p>
+            {funding && (
+              <span
+                className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[0.5625rem] font-bold uppercase tracking-[0.18em] ring-1 ${badge}`}
+              >
+                {funding}
+              </span>
+            )}
           </div>
           <span className={art.ink === 'dark' ? 'opacity-80' : 'opacity-95'}>
             <OrbitMark size={size === 'sm' ? 22 : 30} />

@@ -7,8 +7,9 @@
 // shares at the same 1:1 rate as cash — the gentlest possible first investment,
 // because it costs nothing you were counting on.
 import { useCallback, useEffect, useState } from 'react';
-import { money, type InvestResponse, type Quote, type ValuedPosition } from '@/lib/api';
+import { money, type InvestResponse, type PricePoint, type PriceSource, type Quote, type ValuedPosition } from '@/lib/api';
 import { formatCents } from '@/lib/format';
+import { PriceChart } from '@/components/PriceChart';
 import { Chip, ErrorState, Field, Money, PageHeader, SectionCard, Segmented, Sheet, Skeleton } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import { useT } from '@/lib/i18n';
@@ -23,6 +24,8 @@ export default function InvestPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'portfolio' | 'market'>('portfolio');
   const [trading, setTrading] = useState<{ quote: Quote; side: 'buy' | 'sell'; position?: ValuedPosition } | null>(null);
+  /** The symbol whose chart is open. Tapping a row is how you ask for a price. */
+  const [viewing, setViewing] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -59,7 +62,7 @@ export default function InvestPage() {
                 </span>
               </span>
             </div>
-            <div className="mt-4 flex flex-wrap gap-4 border-t border-white/15 pt-4 text-sm">
+            <div className="mt-4 flex flex-wrap gap-4 border-t border-canvas/15 pt-4 text-sm">
               <span className="opacity-80">Cash to invest: <strong className="font-semibold">{formatCents(data.availableCents)}</strong></span>
               <span className="opacity-80">Points: <strong className="font-semibold">{data.points.toLocaleString('en-US')}</strong> ({formatCents(data.pointsValueCents)})</span>
             </div>
@@ -131,31 +134,49 @@ export default function InvestPage() {
               </SectionCard>
             )
           ) : (
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {data.market.map((quote) => (
-                <li key={quote.symbol} className="card flex flex-col p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-display text-base font-bold text-ink-900">{quote.symbol}</span>
-                        <Chip tone={RISK_TONE[quote.risk]}>{RISK_LABEL[quote.risk]}</Chip>
+            <>
+              <MarketDataNote status={data.marketData} />
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {data.market.map((quote) => (
+                  <li key={quote.symbol} className="card flex flex-col p-4">
+                    {/* The whole row opens the chart. "Touch it and get the
+                        price" should not require finding a small target. */}
+                    <button
+                      onClick={() => setViewing(quote.symbol)}
+                      className="-m-1 rounded-xl p-1 text-left transition hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                      aria-label={`${quote.name}, ${formatCents(quote.priceCents)}. Open its chart.`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-display text-base font-bold text-ink-900">{quote.symbol}</span>
+                            <Chip tone={RISK_TONE[quote.risk]}>{RISK_LABEL[quote.risk]}</Chip>
+                            {quote.source === 'live' && <LivePip />}
+                          </div>
+                          <p className="truncate text-sm text-ink-700">{quote.name}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="font-semibold text-ink-900 tnum">{formatCents(quote.priceCents)}</p>
+                          <p className={`text-xs font-semibold tnum ${quote.changeCents >= 0 ? 'text-accent-600' : 'text-danger-600'}`}>
+                            {quote.changeCents >= 0 ? '▲' : '▼'} {(Math.abs(quote.changePercent) * 100).toFixed(2)}%
+                          </p>
+                        </div>
                       </div>
-                      <p className="truncate text-sm text-ink-700">{quote.name}</p>
+                      <p className="mt-2 text-xs leading-relaxed text-ink-600">{quote.blurb}</p>
+                    </button>
+
+                    <div className="mt-auto flex items-center gap-3 pt-3">
+                      <button onClick={() => setViewing(quote.symbol)} className="btn-ghost flex-1 !py-2 text-sm">
+                        Chart
+                      </button>
+                      <button onClick={() => setTrading({ quote, side: 'buy' })} className="btn-accent flex-1 !py-2 text-sm">
+                        Buy
+                      </button>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-ink-900 tnum">{formatCents(quote.priceCents)}</p>
-                      <p className={`text-xs font-semibold tnum ${quote.changeCents >= 0 ? 'text-accent-600' : 'text-danger-600'}`}>
-                        {quote.changeCents >= 0 ? '▲' : '▼'} {(Math.abs(quote.changePercent) * 100).toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-                  <p className="mt-2 flex-1 text-xs leading-relaxed text-ink-600">{quote.blurb}</p>
-                  <button onClick={() => setTrading({ quote, side: 'buy' })} className="btn-accent mt-3 w-full !py-2 text-sm">
-                    Buy
-                  </button>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
 
           {/* Moving out */}
@@ -203,6 +224,17 @@ export default function InvestPage() {
         </>
       )}
 
+      {viewing && (
+        <InstrumentSheet
+          symbol={viewing}
+          onClose={() => setViewing(null)}
+          onBuy={(quote) => {
+            setViewing(null);
+            setTrading({ quote, side: 'buy' });
+          }}
+        />
+      )}
+
       {trading && (
         <TradeSheet
           state={trading}
@@ -239,10 +271,13 @@ function TradeSheet({
   const [sellAll, setSellAll] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<{ date: string; priceCents: number }[] | null>(null);
+  const [history, setHistory] = useState<{ points: PricePoint[]; source: PriceSource } | null>(null);
 
   useEffect(() => {
-    money.instrument(quote.symbol, 90).then((r) => setHistory(r.history)).catch(() => setHistory([]));
+    money
+      .instrument(quote.symbol, 90)
+      .then((r) => setHistory({ points: r.history, source: r.historySource }))
+      .catch(() => setHistory({ points: [], source: 'simulated' }));
   }, [quote.symbol]);
 
   const amountCents = Math.round((Number.parseFloat(amount.replace(/[^0-9.]/g, '')) || 0) * 100);
@@ -294,7 +329,9 @@ function TradeSheet({
           </div>
         </div>
 
-        {history && history.length > 1 && <Sparkline points={history.map((h) => h.priceCents)} />}
+        {history && history.points.length > 1 && (
+          <PriceChart points={history.points} source={history.source} size="sm" label="Latest close" />
+        )}
 
         {side === 'buy' && (
           <Segmented
@@ -368,30 +405,157 @@ function TradeSheet({
   );
 }
 
-/** A 90-day line. One series, so no legend and no axis clutter. */
-function Sparkline({ points }: { points: number[] }) {
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const span = Math.max(1, max - min);
-  const path = points
-    .map((value, i) => `${(i / (points.length - 1)) * 100},${34 - ((value - min) / span) * 30}`)
-    .join(' ');
-  const rising = (points.at(-1) ?? 0) >= (points[0] ?? 0);
-
+/** A quiet "this number is real" marker. Never the only signal: the chart and
+ *  the detail sheet both say it in words too. */
+function LivePip() {
   return (
-    <figure>
-      <svg viewBox="0 0 100 36" preserveAspectRatio="none" className="h-20 w-full" role="img" aria-label={`90-day price trend, ${rising ? 'up' : 'down'} overall`}>
-        <polyline
-          points={path}
-          fill="none"
-          stroke={rising ? 'rgb(var(--accent-500))' : 'rgb(var(--danger-500))'}
-          strokeWidth={1.6}
-          vectorEffect="non-scaling-stroke"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <figcaption className="mt-1 text-center text-[0.6875rem] text-ink-500">Last 90 days · simulated data</figcaption>
-    </figure>
+    <span className="inline-flex items-center gap-1 rounded-full bg-accent-50 px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-accent-700">
+      <span className="h-1.5 w-1.5 rounded-full bg-accent-500" aria-hidden="true" />
+      Live
+    </span>
   );
 }
+
+/**
+ * What the market data is actually doing. Alpha Vantage's free tier allows 25
+ * calls a day and one a second, so the board warms up over a few seconds rather
+ * than arriving live. Saying so beats a page that silently shows made-up
+ * numbers next to real ones.
+ */
+function MarketDataNote({ status }: { status: InvestResponse['marketData'] }) {
+  if (!status.configured) {
+    return (
+      <p className="mb-3 rounded-xl bg-surface-sunken px-4 py-2.5 text-xs leading-relaxed text-ink-600">
+        No market data key is configured, so every price here is simulated — generated from the symbol and the date, so the
+        same day always shows the same number.
+      </p>
+    );
+  }
+  // The free tier is 25 calls a day. Once those are gone, more waiting will not
+  // help, so say that rather than telling someone to reload for ever.
+  const spent = status.callsToday >= status.dailyBudget;
+  if (spent) {
+    return (
+      <p className="mb-3 rounded-xl bg-warn-50 px-4 py-2.5 text-xs leading-relaxed text-warn-900">
+        Today&rsquo;s {status.dailyBudget} live price requests are used up, so anything without a{' '}
+        <strong className="font-semibold">Live</strong> badge is showing a simulated price. The allowance resets at
+        midnight UTC.
+      </p>
+    );
+  }
+  if (status.warming > 0) {
+    return (
+      <p className="mb-3 rounded-xl bg-info-50 px-4 py-2.5 text-xs leading-relaxed text-info-900">
+        Fetching live prices for {status.warming} more {status.warming === 1 ? 'investment' : 'investments'}. Anything not
+        marked <strong className="font-semibold">Live</strong> yet is simulated — reload in a moment.
+      </p>
+    );
+  }
+  return (
+    <p className="mb-3 text-xs text-ink-500">
+      Live prices from {status.provider}, {status.callsToday} of {status.dailyBudget} daily requests used. Tap any
+      investment for its chart.
+    </p>
+  );
+}
+
+/**
+ * One investment, full size: the live price, a scrubbable chart, what it is,
+ * and how risky it is. Reached by tapping a row, which is how someone asks
+ * "what is this worth right now?".
+ */
+function InstrumentSheet({
+  symbol,
+  onClose,
+  onBuy,
+}: {
+  symbol: string;
+  onClose: () => void;
+  onBuy: (quote: Quote) => void;
+}) {
+  const [detail, setDetail] = useState<{ quote: Quote; history: PricePoint[]; historySource: PriceSource } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Segmented takes string values, so the range is a string and parsed once.
+  const [range, setRange] = useState<'30' | '90'>('90');
+  const days = Number(range);
+
+  useEffect(() => {
+    setDetail(null);
+    setError(null);
+    money
+      .instrument(symbol, days)
+      .then(setDetail)
+      .catch((cause: Error) => setError(cause.message));
+  }, [symbol, days]);
+
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title={symbol}
+      footer={
+        detail ? (
+          <button onClick={() => onBuy(detail.quote)} className="btn-accent w-full">
+            Buy {symbol} from $1
+          </button>
+        ) : undefined
+      }
+    >
+      {error ? (
+        <ErrorState message={error} onRetry={() => setRange((r) => r)} />
+      ) : !detail ? (
+        <div className="space-y-3">
+          <Skeleton className="h-10" />
+          <Skeleton className="h-44" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-display text-xl font-bold text-ink-900">{detail.quote.name}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <Chip tone={RISK_TONE[detail.quote.risk]}>{RISK_LABEL[detail.quote.risk]}</Chip>
+                {detail.quote.source === 'live' ? (
+                  <LivePip />
+                ) : (
+                  <Chip tone="info">Simulated price</Chip>
+                )}
+              </div>
+            </div>
+            <Segmented
+              label="Range"
+              size="sm"
+              value={range}
+              onChange={setRange}
+              options={[
+                ['30', '1M'],
+                ['90', '3M'],
+              ] as const}
+            />
+          </div>
+
+          <PriceChart points={detail.history} source={detail.historySource} label="Latest close" />
+
+          <p className="text-sm leading-relaxed text-ink-700">{detail.quote.blurb}</p>
+
+          <p className="rounded-xl bg-surface-sunken px-4 py-3 text-xs leading-relaxed text-ink-600">
+            {detail.quote.source === 'live' ? (
+              <>
+                Priced from the market close on{' '}
+                {new Date(detail.quote.asOf).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}. An order fills
+                at the price shown when you confirm it.
+              </>
+            ) : (
+              <>
+                This price is simulated, not live — generated from the symbol and the date so the same day always shows the
+                same number. Everything else here (what you own, what you paid, profit and loss) is real arithmetic on it.
+              </>
+            )}
+          </p>
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
+

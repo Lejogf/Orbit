@@ -105,7 +105,7 @@ function SupportInner() {
               aria-checked={topic === t}
               onClick={() => setTopic(t)}
               className={`rounded-full px-3.5 py-2 text-sm font-medium transition ${
-                topic === t ? 'bg-ink-600 text-white' : 'bg-surface text-ink-700 ring-1 ring-line hover:bg-navy-50'
+                topic === t ? 'bg-ink-600 text-canvas' : 'bg-surface text-ink-700 ring-1 ring-line hover:bg-navy-50'
               }`}
             >
               {t}
@@ -395,7 +395,7 @@ function Conversation({ id, onBack }: { id: string; onBack: () => void }) {
                 <p className="max-w-[90%] rounded-full bg-surface-sunken px-3 py-1.5 text-center text-xs text-ink-700">{m.body}</p>
               ) : (
                 <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm ${
-                  m.author === 'customer' ? 'rounded-br-md bg-ink-600 text-white' : m.author === 'eno' ? 'rounded-bl-md bg-surface-sunken text-ink-800' : 'rounded-bl-md bg-surface text-ink-900 ring-1 ring-line'
+                  m.author === 'customer' ? 'rounded-br-md bg-ink-600 text-canvas' : m.author === 'eno' ? 'rounded-bl-md bg-surface-sunken text-ink-800' : 'rounded-bl-md bg-surface text-ink-900 ring-1 ring-line'
                 }`}>
                   <p className="mb-0.5 text-[11px] font-semibold opacity-70">
                     {m.author === 'customer' ? 'You' : m.author === 'eno' ? 'Ori (earlier)' : data.agentName ?? 'Agent'}

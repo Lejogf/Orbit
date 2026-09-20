@@ -1,7 +1,7 @@
 // The cards a customer holds, and the one we'd suggest next.
 import type { PrismaClient } from '@prisma/client';
 import { ApiError } from '../lib/http.js';
-import { CARD_PRODUCTS, cardById, eligibilityFor, recommendCard } from '../features/cards.js';
+import { CARD_PRODUCTS, DEBIT_CARD, cardById, eligibilityFor, recommendCard } from '../features/cards.js';
 import { scoreForPricing } from './credit.js';
 import { monthlyIncome } from './money.js';
 import { raiseAlert } from './notify.js';
@@ -14,12 +14,41 @@ function last4(seed: string): string {
 }
 
 export async function listCards(prisma: PrismaClient, customerId: string) {
-  const [accounts, products] = await Promise.all([
+  const [accounts, checking, products] = await Promise.all([
     prisma.account.findMany({ where: { customerId, type: 'Credit Card' }, orderBy: { createdAt: 'asc' } }),
+    prisma.account.findMany({ where: { customerId, type: 'Checking' }, orderBy: { createdAt: 'asc' } }),
     prisma.cardProduct.findMany({ where: { customerId } }),
   ]);
 
-  return accounts.map((account) => {
+  /**
+   * Every checking account comes with a debit card. It is not a product you
+   * apply for, so it is built here from the account rather than the catalogue.
+   * `availableCents` is the balance itself: on a debit card, available money
+   * and your money are the same thing, and nothing is owed.
+   */
+  const debitCards = checking.map((account) => ({
+    accountId: account.id,
+    productId: DEBIT_CARD.id,
+    name: DEBIT_CARD.name,
+    tier: DEBIT_CARD.tier,
+    funding: DEBIT_CARD.funding,
+    kind: 'personal' as const,
+    tagline: DEBIT_CARD.tagline,
+    art: DEBIT_CARD.art,
+    earn: DEBIT_CARD.earn,
+    perks: DEBIT_CARD.perks,
+    annualFeeCents: 0,
+    nickname: account.nickname,
+    last4: account.last4,
+    balanceCents: account.balanceCents,
+    creditLimitCents: null,
+    availableCents: account.balanceCents,
+    isLocked: account.isLocked,
+    physicalOrderedAt: null,
+    rewardsCents: account.rewardsCents,
+  }));
+
+  const creditCards = accounts.map((account) => {
     const link = products.find((p) => p.accountId === account.id);
     // Accounts that pre-date the catalogue are treated as the mid tier.
     const spec = cardById(link?.productId ?? '') ?? cardById('orbit-move')!;
@@ -28,6 +57,7 @@ export async function listCards(prisma: PrismaClient, customerId: string) {
       productId: spec.id,
       name: spec.name,
       tier: spec.tier,
+      funding: spec.funding,
       kind: (link?.kind ?? spec.kind) as 'personal' | 'business',
       tagline: spec.tagline,
       art: spec.art,
@@ -44,6 +74,10 @@ export async function listCards(prisma: PrismaClient, customerId: string) {
       rewardsCents: account.rewardsCents,
     };
   });
+
+  // Debit first: it is the card most people reach for, and it spends money
+  // that already exists.
+  return [...debitCards, ...creditCards];
 }
 
 async function profileForOffers(prisma: PrismaClient, customerId: string) {
@@ -69,7 +103,11 @@ async function profileForOffers(prisma: PrismaClient, customerId: string) {
 }
 
 export async function cardOffers(prisma: PrismaClient, customerId: string) {
-  const held = (await listCards(prisma, customerId)).map((c) => c.productId);
+  // Only credit cards count as "held" here: the debit card is not in the
+  // catalogue, cannot be applied for, and must not suppress a recommendation.
+  const held = (await listCards(prisma, customerId))
+    .filter((card) => card.funding === 'credit')
+    .map((card) => card.productId);
   const profile = await profileForOffers(prisma, customerId);
   const eligibility = eligibilityFor(profile);
 
@@ -132,8 +170,20 @@ export async function orderPhysicalCard(prisma: PrismaClient, customerId: string
   return listCards(prisma, customerId);
 }
 
-/** The product a purchase earned on, so points use the right rate. */
+/**
+ * The product a purchase earned on, so points use the right rate.
+ *
+ * A checking account is spent with the debit card, which earns nothing. Before
+ * this checked the account type, a debit purchase fell through to the default
+ * and quietly earned Orbit Move points — rewards the customer had not earned
+ * and could not have earned by paying that way.
+ */
 export async function productForAccount(prisma: PrismaClient, accountId: string): Promise<string> {
   const link = await prisma.cardProduct.findFirst({ where: { accountId } });
-  return link?.productId ?? 'orbit-move';
+  if (link) return link.productId;
+
+  const account = await prisma.account.findUnique({ where: { id: accountId }, select: { type: true } });
+  if (account?.type === 'Checking') return DEBIT_CARD.id;
+  // A credit account that pre-dates the catalogue is treated as the mid tier.
+  return 'orbit-move';
 }

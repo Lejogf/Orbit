@@ -213,7 +213,7 @@ export function Sidebar() {
           </span>
           {!collapsed && <span className="truncate">{label}</span>}
           {!collapsed && badge && (
-            <span className="ml-auto rounded-full bg-danger-500 px-2 py-0.5 text-[0.6875rem] font-bold text-white tnum">{unread}</span>
+            <span className="ml-auto rounded-full bg-danger-500 px-2 py-0.5 text-[0.6875rem] font-bold text-on-danger tnum">{unread}</span>
           )}
         </Link>
         {collapsed && (
@@ -258,7 +258,7 @@ export function Sidebar() {
           collapsed ? 'justify-center p-2' : 'gap-3 p-2.5'
         } ${isActive('/settings') ? 'bg-surface-sunken' : 'hover:bg-surface-sunken'}`}
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-sheen text-[0.8125rem] font-bold text-white" aria-hidden="true">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-sheen text-[0.8125rem] font-bold text-on-accent" aria-hidden="true">
           {session.customer.initials}
         </span>
         {!collapsed && (
@@ -304,7 +304,7 @@ export function MobileTopBar() {
       <Link
         href="/settings"
         aria-label={`${t('nav.settings')}: ${session.customer.firstName}`}
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-sheen text-[0.75rem] font-bold text-white"
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-sheen text-[0.75rem] font-bold text-on-accent"
       >
         {session.customer.initials}
       </Link>
@@ -318,7 +318,7 @@ export function MobileTopBar() {
         <Link href="/alerts" aria-label={`${t('nav.alerts')}${unread ? `, ${unread} unread` : ''}`} className="relative grid h-10 w-10 place-items-center rounded-full text-ink-700 hover:bg-surface-sunken">
           {icon(ICONS.alerts)}
           {unread > 0 && (
-            <span className="absolute right-1 top-1 min-w-[1.05rem] rounded-full bg-danger-500 px-1 text-center text-[0.625rem] font-bold leading-[1.05rem] text-white">
+            <span className="absolute right-1 top-1 min-w-[1.05rem] rounded-full bg-danger-500 px-1 text-center text-[0.625rem] font-bold leading-[1.05rem] text-on-danger">
               {unread > 9 ? '9+' : unread}
             </span>
           )}
@@ -471,7 +471,7 @@ function MoreSheet({
               >
                 {entry.icon}
                 <span className="leading-tight">{t(entry.label)}</span>
-                {entry.href === '/alerts' && unread > 0 && <span className="absolute right-2 top-2 rounded-full bg-danger-500 px-1.5 text-[0.625rem] font-bold text-white">{unread}</span>}
+                {entry.href === '/alerts' && unread > 0 && <span className="absolute right-2 top-2 rounded-full bg-danger-500 px-1.5 text-[0.625rem] font-bold text-on-danger">{unread}</span>}
               </Link>
             </li>
           ))}

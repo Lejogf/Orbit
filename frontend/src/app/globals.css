@@ -33,9 +33,11 @@
   --accent-200: 167 243 208;
   --accent-300: 110 231 183;
   --accent-400: 52 211 153;
-  --accent-500: 16 168 107;
-  --accent-600: 8 138 86;
-  --accent-700: 6 110 69;
+  /* Deepened so white text on a green fill clears 4.5:1. The old 16 168 107
+     gave white only 3.07:1, which is why "money in" labels were hard to read. */
+  --accent-500: 6 125 79;
+  --accent-600: 5 103 65;
+  --accent-700: 5 84 53;
   --accent-800: 6 87 56;
   --accent-900: 5 62 41;
 
@@ -66,8 +68,9 @@
   --info-200: 191 219 254;
   --info-300: 147 197 253;
   --info-400: 96 165 250;
-  --info-500: 42 120 214;
-  --info-600: 29 95 180;
+  /* 42 120 214 gave white 4.42:1 — just under. */
+  --info-500: 29 95 180;
+  --info-600: 25 82 156;
   --info-700: 27 76 143;
   --info-800: 27 64 115;
   --info-900: 26 55 95;
@@ -79,6 +82,48 @@
   --glass-bg: 255 255 255;
   --glass-alpha: 0.72;
   --glass-border: 255 255 255;
+
+  /* The accent gradient. Deep in light so white reads on it; light in dark so
+     the dark on-accent reads on it. Both ends clear 4.5:1 against --on-accent. */
+  --sheen-from: 6 110 69;
+  --sheen-to: 5 62 41;
+
+  /* --------------------------------------------------------------------
+     Categorical hues, for merchant marks and category chips.
+
+     These used to be Tailwind's own `bg-emerald-100 text-emerald-800` and the
+     like. Tailwind's palette is FIXED — it does not swap with the theme — so in
+     dark mode every one of those tints stayed a pale wash and read as a white
+     blob on a dark card. Here each hue is a token pair with its own dark value,
+     so a merchant mark keeps its identity in both themes and stays legible.
+
+     `-surface` is the tint behind the mark; `-ink` is the text on it. Every
+     pair is checked to at least 4.5:1 in both themes.
+     -------------------------------------------------------------------- */
+  --cat-1-surface: 219 234 254;  --cat-1-ink: 27 76 143;   /* blue    */
+  --cat-2-surface: 254 243 199;  --cat-2-ink: 120 70 15;   /* amber   */
+  --cat-3-surface: 209 250 229;  --cat-3-ink: 6 87 56;     /* green   */
+  --cat-4-surface: 224 242 254;  --cat-4-ink: 12 74 110;   /* sky     */
+  --cat-5-surface: 237 233 254;  --cat-5-ink: 76 29 149;   /* violet  */
+  --cat-6-surface: 204 251 241;  --cat-6-ink: 17 94 89;    /* teal    */
+  --cat-7-surface: 255 237 213;  --cat-7-ink: 124 45 18;   /* orange  */
+  --cat-8-surface: 224 231 255;  --cat-8-ink: 55 48 163;   /* indigo  */
+
+  /* --------------------------------------------------------------------
+     Text that sits ON a saturated fill.
+
+     The ink scale inverts with the theme, so `bg-accent-500 text-white` reads
+     as white-on-dark-green in light mode and white-on-MINT in dark — which is
+     about 1.9:1 and unreadable. These four tokens say what colour text belongs
+     on each fill, and each has its own dark value.
+
+     `on-warn` is the exception that proves the rule: amber is bright in BOTH
+     themes, so its text stays dark in both.
+     -------------------------------------------------------------------- */
+  --on-accent: 255 255 255;
+  --on-danger: 255 255 255;
+  --on-info: 255 255 255;
+  --on-warn: 56 34 8;
 
   color-scheme: light;
 }
@@ -154,6 +199,25 @@
   --glass-alpha: 0.66;
   --glass-border: 120 200 165;
 
+  --sheen-from: 52 211 153;
+  --sheen-to: 110 231 183;
+
+  /* Same hues, inverted: a deep tint with a light, legible ink on top. */
+  --cat-1-surface: 24 45 78;   --cat-1-ink: 165 205 253;
+  --cat-2-surface: 66 46 10;   --cat-2-ink: 252 217 128;
+  --cat-3-surface: 8 62 42;    --cat-3-ink: 134 235 190;
+  --cat-4-surface: 14 52 74;   --cat-4-ink: 150 214 250;
+  --cat-5-surface: 48 34 92;   --cat-5-ink: 197 178 253;
+  --cat-6-surface: 12 60 58;   --cat-6-ink: 133 231 219;
+  --cat-7-surface: 74 38 16;   --cat-7-ink: 253 186 130;
+  --cat-8-surface: 36 38 96;   --cat-8-ink: 178 180 250;
+
+  /* In dark, the 500s are the LIGHT end of each scale, so their text flips. */
+  --on-accent: 4 40 26;
+  --on-danger: 60 12 18;
+  --on-info: 14 32 58;
+  --on-warn: 56 34 8;
+
   color-scheme: dark;
 }
 
@@ -211,11 +275,9 @@ html:not([data-motion='reduce']) .glass {
   .btn-primary {
     @apply btn bg-ink-900 text-canvas hover:bg-ink-800 active:scale-[0.98];
   }
+  /* `text-on-accent` flips with the theme, so this needs no dark variant. */
   .btn-accent {
-    @apply btn bg-accent-500 text-white shadow-[0_6px_18px_-8px_rgb(var(--accent-500)/0.8)] hover:bg-accent-600 active:scale-[0.98];
-  }
-  [data-theme='dark'] .btn-accent {
-    @apply text-ink-50;
+    @apply btn bg-accent-500 text-on-accent shadow-[0_6px_18px_-8px_rgb(var(--accent-500)/0.8)] hover:bg-accent-600 active:scale-[0.98];
   }
   .btn-ghost {
     @apply btn border border-line-strong bg-surface text-ink-800 hover:bg-surface-sunken active:scale-[0.98];
@@ -451,11 +513,26 @@ html[data-contrast='high'] ::placeholder {
 
 /* Colour-safe: money keeps its meaning without relying on green vs red. */
 html[data-colorsafe='true'] {
-  --accent-500: 42 120 214;
-  --accent-600: 29 95 180;
+  /* Blue/orange instead of green/red, at the same contrast as the tokens they
+     replace: white on 42 120 214 was only 4.42:1. */
+  --accent-500: 29 95 180;
+  --accent-600: 25 82 156;
   --accent-400: 96 165 250;
-  --danger-500: 180 95 6;
-  --danger-600: 146 74 6;
+  --sheen-from: 29 95 180;
+  --sheen-to: 23 68 128;
+  --danger-500: 166 86 5;
+  --danger-600: 138 70 6;
+  --on-accent: 255 255 255;
+  --on-danger: 255 255 255;
+}
+html[data-colorsafe='true'][data-theme='dark'] {
+  --accent-500: 125 190 255;
+  --accent-600: 170 214 255;
+  --sheen-from: 125 190 255;
+  --sheen-to: 170 214 255;
+  --danger-500: 246 173 85;
+  --on-accent: 8 28 52;
+  --on-danger: 60 30 4;
 }
 
 /* Simple mode: fewer things on screen, bigger type, bigger buttons. */

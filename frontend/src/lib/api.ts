@@ -472,6 +472,16 @@ export interface SpendingReport {
 
 // --- travel ---
 
+/** What cancelling a booking would cost, quoted before anything happens. */
+export interface CancellationQuote {
+  refundCents: number;
+  feeCents: number;
+  milesRefunded: number;
+  reason: string;
+  free: boolean;
+  freeWindowHoursLeft: number;
+}
+
 export interface Airport { code: string; city: string }
 
 export interface FlightOption {
@@ -641,9 +651,14 @@ export const more = {
 
   travel: () => get<{ airports: Airport[]; rewards: Rewards; bookings: Booking[] }>('/travel'),
   flights: (q: { from: string; to: string; date: string; travelers: number }) =>
-    get<{ search: typeof q & { fromCity: string; toCity: string }; forecast: PriceForecast; options: FlightOption[] }>(
-      `/travel/flights?${new URLSearchParams({ ...q, travelers: String(q.travelers) })}`,
-    ),
+    get<{
+      search: typeof q & { fromCity: string; toCity: string };
+      forecast: PriceForecast;
+      options: FlightOption[];
+      /** 'live' means real Google Flights fares; 'generated' is our inventory. */
+      source: 'live' | 'generated';
+      provider: { provider: string; configured: boolean; searchesMade: number; lastError: string | null };
+    }>(`/travel/flights?${new URLSearchParams({ ...q, travelers: String(q.travelers) })}`),
   hotels: (q: { city: string; checkIn: string; nights: number }) =>
     get<{ search: typeof q; forecast: PriceForecast; options: HotelOption[] }>(
       `/travel/hotels?${new URLSearchParams({ ...q, nights: String(q.nights) })}`,
@@ -652,6 +667,10 @@ export const more = {
   bookTrip: (trip: TripRequest, payWith: PayWith) => post<Booking>('/travel/book', { trip, payWith }),
   checkPrice: (id: string, demo = false) =>
     post<{ booking: Booking; newPriceCents: number; refundCents: number }>(`/travel/bookings/${id}/check-price`, { demo }),
+  cancellationQuote: (id: string) =>
+    get<{ booking: Booking; quote: CancellationQuote }>(`/travel/bookings/${id}/cancellation`),
+  cancelBooking: (id: string) =>
+    post<{ booking: Booking; quote: CancellationQuote }>(`/travel/bookings/${id}/cancel`),
   offers: () => get<Offer[]>('/offers'),
   setOffer: (id: string, activated: boolean) => post<Offer[]>(`/offers/${id}`, { activated }),
 
@@ -701,11 +720,15 @@ export interface EarnRule {
   label: string;
 }
 
+/** Debit spends your own money; credit spends the bank's. */
+export type CardFunding = 'debit' | 'credit';
+
 export interface HeldCard {
   accountId: string;
   productId: string;
   name: string;
   tier: string;
+  funding: CardFunding;
   kind: 'personal' | 'business';
   tagline: string;
   art: CardArt;
@@ -772,7 +795,34 @@ export interface RewardsResponse {
   history: { id: string; points: number; kind: string; reason: string; redemption: string | null; valueCents: number | null; createdAt: string }[];
 }
 
+/** Everyone but the owner, who is set when the household is created. */
+export type HouseholdRole = 'partner' | 'teen' | 'child';
+
+export interface HouseholdInvite {
+  id: string;
+  role: HouseholdRole | string;
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled' | string;
+  note: string | null;
+  createdAt: string;
+  household: { id: string; name: string };
+  to: { name: string; username: string | null };
+  from: string;
+}
+
+export interface HouseholdInvites {
+  received: HouseholdInvite[];
+  sent: HouseholdInvite[];
+}
+
 // --- investing ---
+
+/** Where a price came from. The UI labels it rather than implying live. */
+export type PriceSource = 'live' | 'simulated';
+
+export interface PricePoint {
+  date: string;
+  priceCents: number;
+}
 
 export interface Quote {
   symbol: string;
@@ -783,6 +833,21 @@ export interface Quote {
   priceCents: number;
   changeCents: number;
   changePercent: number;
+  source: PriceSource;
+  /** When this price was true, ISO 8601. */
+  asOf: string;
+  /** Shown in the "most traded" rail. */
+  featured: boolean;
+}
+
+export interface MarketDataStatus {
+  provider: string;
+  configured: boolean;
+  callsToday: number;
+  dailyBudget: number;
+  warming: number;
+  throttledUntil: string | null;
+  budgetResetsAt: string;
 }
 
 export interface ValuedPosition {
@@ -814,6 +879,7 @@ export interface InvestResponse {
   points: number;
   pointsValueCents: number;
   market: Quote[];
+  marketData: MarketDataStatus;
   trades: { id: string; symbol: string; side: string; quantity: number; priceCents: number; amountCents: number; fundedBy: string; createdAt: string }[];
 }
 
@@ -842,6 +908,8 @@ export interface BudgetResponse {
     advice: string;
   };
   household: { id: string; name: string; role: string; members: { customerId: string; firstName: string; role: string; sharesMoney: boolean }[] } | null;
+  /** Outstanding invites addressed to this customer, so Budget can offer them. */
+  invites?: HouseholdInvite[];
   emergencyTargetMonths: number;
   savingsCents: number;
 }
@@ -892,7 +960,7 @@ export const money = {
 
   invest: () => get<InvestResponse>('/invest'),
   instrument: (symbol: string, range = 90) =>
-    get<{ quote: Quote; history: { date: string; priceCents: number }[] }>(`/invest/${symbol}?range=${range}`),
+    get<{ quote: Quote; history: PricePoint[]; historySource: PriceSource }>(`/invest/${symbol}?range=${range}`),
   buy: (symbol: string, amountCents: number, fundedBy: 'cash' | 'points' = 'cash') =>
     post<InvestResponse>('/invest/buy', { symbol, amountCents, fundedBy }),
   sell: (symbol: string, quantity: number) => post<InvestResponse>('/invest/sell', { symbol, quantity }),
@@ -906,6 +974,12 @@ export const money = {
   saveEnvelopes: (envelopes: { category: string; plannedCents: number; bucket?: Bucket; limitCents?: number | null }[]) =>
     request<BudgetResponse>('PUT', '/budget/envelopes', { envelopes }),
   createHousehold: (name: string) => post<{ household: { id: string; name: string }; joinCode: string }>('/budget/household', { name }),
+  householdInvites: () => get<HouseholdInvites>('/budget/household/invites'),
+  inviteToHousehold: (username: string, role: HouseholdRole, note?: string) =>
+    post<HouseholdInvite>('/budget/household/invites', { username, role, note }),
+  respondToInvite: (id: string, accept: boolean) =>
+    post<BudgetResponse>(`/budget/household/invites/${id}/respond`, { accept }),
+  cancelInvite: (id: string) => post<HouseholdInvites>(`/budget/household/invites/${id}/cancel`),
   joinHousehold: (code: string, role: 'partner' | 'teen' | 'child') => post<BudgetResponse>('/budget/household/join', { code, role }),
   leaveHousehold: () => post<BudgetResponse>('/budget/household/leave'),
 

@@ -10,6 +10,7 @@ import {
   more,
   type Airport,
   type Booking,
+  type CancellationQuote,
   type FlightOption,
   type HotelOption,
   type Offer,
@@ -20,7 +21,7 @@ import {
   type TripRequest,
 } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
-import { Chip, EmptyState, ErrorState, PageHeader, Skeleton } from '@/components/ui';
+import { Chip, EmptyState, ErrorState, PageHeader, Sheet, Skeleton } from '@/components/ui';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/components/Toast';
 
@@ -72,7 +73,7 @@ function TravelInner() {
             role="tab"
             aria-selected={tab === id}
             onClick={() => setTab(id)}
-            className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === id ? 'bg-ink-600 text-white' : 'text-ink-600 hover:bg-navy-50'}`}
+            className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === id ? 'bg-ink-600 text-canvas' : 'text-ink-600 hover:bg-navy-50'}`}
           >
             {label}
           </button>
@@ -90,7 +91,7 @@ function TravelInner() {
 
 function RewardsStrip({ rewards }: { rewards: Rewards }) {
   return (
-    <section className="grid gap-3 rounded-2xl bg-ink-800 p-5 text-white sm:grid-cols-3" aria-label="Your rewards">
+    <section className="grid gap-3 rounded-2xl bg-ink-800 p-5 text-canvas sm:grid-cols-3" aria-label="Your rewards">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-ink-200">Miles</p>
         <p className="mt-1 text-2xl font-semibold tnum">{rewards.miles.toLocaleString('en-US')}</p>
@@ -141,7 +142,13 @@ function Book({ airports, rewards, initialTo, onBooked }: { airports: Airport[];
   const [city, setCity] = useState(initialTo ? initialTo.replace(/\b\w/g, (c) => c.toUpperCase()) : '');
   const [nights, setNights] = useState(3);
 
-  const [results, setResults] = useState<{ forecast: PriceForecast; flights?: FlightOption[]; hotels?: HotelOption[] } | null>(null);
+  const [results, setResults] = useState<{
+    forecast: PriceForecast;
+    flights?: FlightOption[];
+    hotels?: HotelOption[];
+    /** Only flights can be live; hotels are always the generated inventory. */
+    source?: 'live' | 'generated';
+  } | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chosen, setChosen] = useState<TripRequest | null>(null);
@@ -154,7 +161,7 @@ function Book({ airports, rewards, initialTo, onBooked }: { airports: Airport[];
     try {
       if (kind === 'flight') {
         const r = await more.flights({ from, to, date, travelers });
-        setResults({ forecast: r.forecast, flights: r.options });
+        setResults({ forecast: r.forecast, flights: r.options, source: r.source });
       } else {
         const r = await more.hotels({ city, checkIn: date, nights });
         setResults({ forecast: r.forecast, hotels: r.options });
@@ -230,6 +237,23 @@ function Book({ airports, rewards, initialTo, onBooked }: { airports: Airport[];
       {results && (
         <section className="space-y-3" aria-label="Results">
           <ForecastBanner forecast={results.forecast} />
+          {/* Say where these fares came from. A generated fare that looks live
+              is the one thing a travel screen must not do. */}
+          {results.flights && (
+            <p className="text-xs leading-relaxed text-ink-600">
+              {results.source === 'live' ? (
+                <>
+                  <strong className="font-semibold text-accent-700">Live fares</strong> from Google Flights. Booking here
+                  records the itinerary and charges your card — it does not reserve a seat with the airline.
+                </>
+              ) : (
+                <>
+                  These fares are <strong className="font-semibold">generated from the route and date</strong>, not a live
+                  airline feed. Pricing, miles, credits and refunds on them are real arithmetic.
+                </>
+              )}
+            </p>
+          )}
           <ul className="space-y-2">
             {results.flights?.map((f, i) => (
               <li key={f.id}>
@@ -369,6 +393,8 @@ function Checkout({ trip, rewards, onBooked }: { trip: TripRequest; rewards: Rew
 function Trips({ bookings, onChange }: { bookings: Booking[]; onChange: () => void }) {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
+  /** The booking whose cancellation is being quoted. */
+  const [cancelling, setCancelling] = useState<Booking | null>(null);
 
   if (bookings.length === 0) {
     return <EmptyState title="No trips yet" body="Book a flight or hotel here and it will appear with its price protection status." />;
@@ -402,20 +428,153 @@ function Trips({ bookings, onChange }: { bookings: Booking[]; onChange: () => vo
                 <p className="text-xs text-ink-600">{b.paidMilesCents ? `${b.paidMilesCents.toLocaleString('en-US')} miles + ` : ''}{formatMoney(b.paidCardCents)} on card</p>
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-sunken px-4 py-3">
-              <p className="text-sm text-ink-800">
-                <strong className="font-semibold">Price protection:</strong>{' '}
-                {b.refundedCents > 0 ? `${formatMoney(b.refundedCents)} refunded so far` : 'watching for drops'} · today {formatMoney(b.currentPriceCents)}
+            {b.status === 'cancelled' ? (
+              <p className="mt-4 rounded-xl bg-surface-sunken px-4 py-3 text-sm text-ink-700">
+                <strong className="font-semibold">Cancelled.</strong> The refund is on your card and any miles you spent
+                have been returned. The miles this trip earned were taken back.
               </p>
-              <div className="flex gap-2">
-                <button className="btn-ghost !py-2 text-xs" disabled={busy === b.id} onClick={() => check(b.id, false)}>Check price now</button>
-                <button className="btn-ghost !py-2 text-xs" disabled={busy === b.id} onClick={() => check(b.id, true)}>Simulate a drop (demo)</button>
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-sunken px-4 py-3">
+                  <p className="text-sm text-ink-800">
+                    <strong className="font-semibold">Price protection:</strong>{' '}
+                    {b.refundedCents > 0 ? `${formatMoney(b.refundedCents)} refunded so far` : 'watching for drops'} · today {formatMoney(b.currentPriceCents)}
+                  </p>
+                  <div className="flex gap-2">
+                    <button className="btn-ghost !py-2 text-xs" disabled={busy === b.id} onClick={() => check(b.id, false)}>Check price now</button>
+                    <button className="btn-ghost !py-2 text-xs" disabled={busy === b.id} onClick={() => check(b.id, true)}>Simulate a drop (demo)</button>
+                  </div>
+                </div>
+                <button onClick={() => setCancelling(b)} className="btn-quiet mt-3 !px-3 !py-1.5 text-xs text-danger-600">
+                  Cancel this {b.kind === 'flight' ? 'flight' : 'stay'}
+                </button>
+              </>
+            )}
           </li>
         );
       })}
+
+      {cancelling && (
+        <CancelTrip
+          booking={cancelling}
+          onClose={() => setCancelling(null)}
+          onCancelled={(message) => {
+            setCancelling(null);
+            toast.show(message, 'success');
+            onChange();
+          }}
+        />
+      )}
     </ul>
+  );
+}
+
+/**
+ * Cancelling a trip, with the fee shown before it is charged.
+ *
+ * The quote is fetched fresh when the sheet opens rather than computed in the
+ * browser: the fee depends on how close departure is, and the server is the
+ * only clock worth trusting for that.
+ */
+function CancelTrip({
+  booking,
+  onClose,
+  onCancelled,
+}: {
+  booking: Booking;
+  onClose: () => void;
+  onCancelled: (message: string) => void;
+}) {
+  const [quote, setQuote] = useState<CancellationQuote | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    more
+      .cancellationQuote(booking.id)
+      .then((r) => setQuote(r.quote))
+      .catch((cause: Error) => setError(cause.message));
+  }, [booking.id]);
+
+  const confirm = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await more.cancelBooking(booking.id);
+      onCancelled(
+        result.quote.feeCents > 0
+          ? `Cancelled — ${formatMoney(result.quote.refundCents)} back, ${formatMoney(result.quote.feeCents)} fee`
+          : `Cancelled — ${formatMoney(result.quote.refundCents)} back, no fee`,
+      );
+    } catch (cause) {
+      setError((cause as Error).message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title={`Cancel ${booking.title}`}
+      footer={
+        quote ? (
+          <div className="flex gap-2">
+            <button onClick={onClose} className="btn-ghost flex-1">Keep my trip</button>
+            <button onClick={() => void confirm()} disabled={busy} className="btn-danger flex-1">
+              {busy ? 'Cancelling…' : 'Cancel it'}
+            </button>
+          </div>
+        ) : undefined
+      }
+    >
+      {error && !quote ? (
+        <ErrorState message={error} onRetry={() => more.cancellationQuote(booking.id).then((r) => setQuote(r.quote))} />
+      ) : !quote ? (
+        <Skeleton className="h-40" />
+      ) : (
+        <div className="space-y-4">
+          <dl className="space-y-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-sm text-ink-700">Back on your card</dt>
+              <dd className="font-display text-xl font-bold text-accent-600 tnum">{formatMoney(quote.refundCents)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-sm text-ink-700">Cancellation fee</dt>
+              <dd className={`font-display text-xl font-bold tnum ${quote.feeCents > 0 ? 'text-danger-600' : 'text-ink-500'}`}>
+                {quote.feeCents > 0 ? `−${formatMoney(quote.feeCents)}` : 'None'}
+              </dd>
+            </div>
+            {quote.milesRefunded > 0 && (
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-sm text-ink-700">Miles returned</dt>
+                <dd className="font-display text-xl font-bold text-ink-900 tnum">
+                  {quote.milesRefunded.toLocaleString('en-US')}
+                </dd>
+              </div>
+            )}
+          </dl>
+
+          <p className="rounded-xl bg-surface-sunken px-4 py-3 text-sm leading-relaxed text-ink-700">{quote.reason}</p>
+
+          {quote.free && quote.freeWindowHoursLeft > 0 && (
+            <p className="rounded-xl bg-accent-50 px-4 py-3 text-sm leading-relaxed text-accent-900">
+              You have about {quote.freeWindowHoursLeft} hour{quote.freeWindowHoursLeft === 1 ? '' : 's'} left to cancel
+              for nothing. After that a fee applies, and it grows as departure gets closer.
+            </p>
+          )}
+
+          {booking.milesEarned > 0 && (
+            <p className="text-xs leading-relaxed text-ink-600">
+              The {booking.milesEarned.toLocaleString('en-US')} miles this trip earned will be taken back — you keep
+              rewards for trips you take, not ones you cancel.
+            </p>
+          )}
+
+          {error && <p role="alert" className="text-sm font-medium text-danger-600">{error}</p>}
+        </div>
+      )}
+    </Sheet>
   );
 }
 

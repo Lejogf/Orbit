@@ -326,8 +326,8 @@ function CostOverTime({ sub }: { sub: SubscriptionDetail }) {
                 aria-pressed={years === preset}
                 className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                   years === preset
-                    ? 'bg-ink-600 text-white'
-                    : 'bg-surface-sunken text-ink-600 hover:bg-slate-200'
+                    ? 'bg-ink-600 text-canvas'
+                    : 'bg-surface-sunken text-ink-600 hover:bg-line-strong'
                 }`}
               >
                 {preset}y
@@ -344,7 +344,7 @@ function CostOverTime({ sub }: { sub: SubscriptionDetail }) {
           value={years}
           onChange={(event) => setYears(Number(event.target.value))}
           aria-valuetext={`${years} years`}
-          className="mt-3 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-navy-600"
+          className="mt-3 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-line-strong accent-accent-500"
         />
         <div className="mt-1.5 flex justify-between text-[11px] text-ink-400 tnum">
           <span>1 year</span>
@@ -381,9 +381,9 @@ function CostTile({
   emphasis?: boolean;
 }) {
   return (
-    <div className={`rounded-xl p-4 ${emphasis ? 'bg-ink-600 text-white' : 'bg-surface-sunken'}`}>
+    <div className={`rounded-xl p-4 ${emphasis ? 'bg-ink-600 text-canvas' : 'bg-surface-sunken'}`}>
       <p className={`label ${emphasis ? 'text-ink-100' : ''}`}>{label}</p>
-      <p className={`mt-1.5 text-xl font-semibold tnum ${emphasis ? 'text-white' : 'text-ink-900'}`}>
+      <p className={`mt-1.5 text-xl font-semibold tnum ${emphasis ? 'text-canvas' : 'text-ink-900'}`}>
         {value}
       </p>
       <p className={`mt-0.5 text-xs ${emphasis ? 'text-ink-200' : 'text-ink-600'}`}>{note}</p>
@@ -482,7 +482,7 @@ function VirtualCard({
   const locked = card.status === 'locked';
 
   return (
-    <div className="mt-4 rounded-2xl bg-ink-700 p-5 text-white">
+    <div className="mt-4 rounded-2xl bg-ink-700 p-5 text-canvas">
       <div className="flex items-start justify-between">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-200">
           Virtual card
@@ -504,7 +504,7 @@ function VirtualCard({
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           onClick={() => setRevealed((value) => !value)}
-          className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
+          className="rounded-full bg-canvas/15 px-3.5 py-1.5 text-xs font-semibold text-canvas transition hover:bg-canvas/25"
         >
           {revealed ? 'Hide' : 'Show'} number
         </button>
@@ -520,7 +520,7 @@ function VirtualCard({
             )
           }
           disabled={busy !== null}
-          className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
+          className="rounded-full bg-canvas/15 px-3.5 py-1.5 text-xs font-semibold text-canvas transition hover:bg-canvas/25"
         >
           {locked ? 'Unlock' : 'Lock'}
         </button>
@@ -534,7 +534,7 @@ function VirtualCard({
             )
           }
           disabled={busy !== null}
-          className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
+          className="rounded-full bg-canvas/15 px-3.5 py-1.5 text-xs font-semibold text-canvas transition hover:bg-canvas/25"
         >
           Use my real card
         </button>
@@ -548,7 +548,7 @@ function VirtualCard({
         </button>
       </div>
 
-      <dl className="mt-4 space-y-1 border-t border-white/10 pt-3 text-[11px] leading-relaxed text-ink-200">
+      <dl className="mt-4 space-y-1 border-t border-canvas/10 pt-3 text-[11px] leading-relaxed text-ink-200">
         <div className="flex gap-2">
           <dt className="w-24 shrink-0 font-semibold text-ink-100">Lock</dt>
           <dd>Pauses charges. Same number, reversible any time.</dd>
@@ -707,7 +707,7 @@ function RemindersCard({
               aria-pressed={channel === option.value}
               className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
                 channel === option.value
-                  ? 'border-ink-600 bg-ink-600 text-white'
+                  ? 'border-ink-600 bg-ink-600 text-canvas'
                   : 'border-line bg-surface text-ink-600 hover:border-ink-300'
               }`}
             >

@@ -59,6 +59,36 @@ const GUIDES: [string, PageGuide][] = [
     canDo: ['Scan a receipt', 'Split a card purchase evenly', 'Send payment requests'],
     es: { title: 'Dividir una cuenta', what: 'Toma una foto del recibo y calculamos cuánto debe cada persona.' },
   }],
+  ['/cards', {
+    title: 'Cards',
+    what: 'Your cards, and the Orbit cards you could apply for. Each one says only what people actually compare: what it earns, and what it costs.',
+    canDo: ['Lock or unlock a card', 'Show your card number', 'See whether a card with a fee would pay for itself for you'],
+    es: { title: 'Tarjetas', what: 'Tus tarjetas y las que podrías pedir, con lo que ganan y lo que cuestan.' },
+  }],
+  ['/pay', {
+    title: 'Pay',
+    what: 'Send money, ask someone to pay you, pay a bill, or deposit a cheque by photo. Payments can be scheduled or set to repeat.',
+    canDo: ['Send or request money', 'Pay a bill', 'Deposit a cheque with your camera', 'Schedule a payment for later'],
+    es: { title: 'Pagar', what: 'Envía o pide dinero, paga una factura o deposita un cheque con una foto.' },
+  }],
+  ['/budget', {
+    title: 'Budget',
+    what: 'The answer to "will I be OK?" — a safe amount to spend each day, what is left over each month, and how long your savings would last.',
+    canDo: ['Pick a budgeting method', 'Fill envelopes from your real spending', 'Share the plan with someone in your household'],
+    es: { title: 'Presupuesto', what: 'Cuánto puedes gastar al día sin problemas, y cuánto durarían tus ahorros.' },
+  }],
+  ['/invest', {
+    title: 'Invest',
+    what: 'Buy a slice of a company, a fund or crypto from $1. Prices are live where we can get them, and every holding shows what you paid and what it is worth now.',
+    canDo: ['Invest from $1', 'Tap any investment for its live price and chart', 'Use points to fund an order', 'See the risk before you buy'],
+    es: { title: 'Invertir', what: 'Invierte desde $1 en empresas, fondos o cripto, con precios en vivo.' },
+  }],
+  ['/rewards', {
+    title: 'Rewards',
+    what: '100 points = $1, everywhere. Cash and gift cards are exactly that; travel is worth more because partners fund it, and a few retail partners are worth less — which the app tells you on the option itself.',
+    canDo: ['Redeem points', 'See where every point came from', 'Find where you would earn more'],
+    es: { title: 'Recompensas', what: '100 puntos = $1. Canjea puntos y mira de dónde vino cada uno.' },
+  }],
   ['/alerts', {
     title: 'Alerts',
     what: 'Every notification we have sent you, kept here even after the pop-up disappears — including every card charge.',
@@ -90,6 +120,9 @@ const GUIDES: [string, PageGuide][] = [
     es: { title: 'Ayuda', what: 'Habla con una persona real a cualquier hora: chat, llamada o te llamamos.' },
   }],
 ];
+
+/** Every screen Ori may send someone to. The allowlist Gemini is held to. */
+export const PAGE_PATHS = GUIDES.map(([path]) => path) as readonly string[];
 
 /** Longest matching prefix wins, so /settings/accessibility beats /settings. */
 export function guideFor(path: string): PageGuide | null {

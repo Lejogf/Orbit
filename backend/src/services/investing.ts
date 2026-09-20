@@ -2,6 +2,10 @@
 //
 // Money for an order leaves checking the moment it fills, and proceeds land
 // back there — so the investing screen and the banking screens never disagree.
+//
+// Prices come from `marketData` (Alpha Vantage, cached) and fall back to the
+// deterministic walk. An order always fills at the price the customer was
+// shown, and every quote carries `source` so the UI can say which it was.
 
 import type { PrismaClient } from '@prisma/client';
 import { ApiError } from '../lib/http.js';
@@ -12,14 +16,13 @@ import {
   applySell,
   checkBuy,
   checkSell,
-  priceHistory,
-  priceOn,
   quote,
   riskNote,
   valuePortfolio,
 } from '../features/investing.js';
 import { raiseAlert } from './notify.js';
 import { pointsBalance, redeemPoints } from './rewards.js';
+import { marketDataStatus, priceBookForAll, priceBookNow, series } from './marketData.js';
 
 async function checkingFor(prisma: PrismaClient, customerId: string) {
   const account = await prisma.account.findFirst({ where: { customerId, type: 'Checking' } });
@@ -35,9 +38,14 @@ export async function investingOverview(prisma: PrismaClient, customerId: string
     pointsBalance(prisma, customerId),
   ]);
 
+  // Non-blocking: whatever is already live, plus a background warm-up for the
+  // rest. The customer's own holdings are queued first — those are their money.
+  const prices = priceBookForAll(holdings.map((h) => h.symbol));
+
   const portfolio = valuePortfolio(
     holdings.map((h) => ({ symbol: h.symbol, quantity: h.quantity, costBasisCents: h.costBasisCents })),
     now,
+    prices,
   );
 
   return {
@@ -46,7 +54,8 @@ export async function investingOverview(prisma: PrismaClient, customerId: string
     availableCents: checking?.balanceCents ?? 0,
     points,
     pointsValueCents: points,
-    market: INSTRUMENTS.map((instrument) => quote(instrument.symbol, now)!),
+    market: INSTRUMENTS.map((instrument) => quote(instrument.symbol, now, prices.get(instrument.symbol))!),
+    marketData: marketDataStatus(),
     trades: trades.map((t) => ({
       id: t.id,
       symbol: t.symbol,
@@ -61,9 +70,17 @@ export async function investingOverview(prisma: PrismaClient, customerId: string
 }
 
 export async function instrumentDetail(symbol: string, range: number, now = new Date()) {
-  const current = quote(symbol, now);
+  // The customer tapped this one, so it is worth waiting for a real number.
+  const [prices, history] = await Promise.all([priceBookNow([symbol]), series(symbol, range)]);
+  const current = quote(symbol, now, prices.get(symbol.toUpperCase()));
   if (!current) throw ApiError.notFound('Investment');
-  return { quote: current, history: priceHistory(symbol, range, now) };
+  return { quote: current, history: history.points, historySource: history.source };
+}
+
+/** The price an order fills at. Worth waiting for: this one moves real money. */
+async function livePriceFor(symbol: string, now: Date) {
+  const prices = await priceBookNow([symbol]);
+  return quote(symbol, now, prices.get(symbol.toUpperCase()));
 }
 
 export async function buy(
@@ -72,7 +89,7 @@ export async function buy(
   input: { symbol: string; amountCents: number; fundedBy: 'cash' | 'points' },
   now = new Date(),
 ) {
-  const current = quote(input.symbol, now);
+  const current = await livePriceFor(input.symbol, now);
   if (!current) throw ApiError.notFound('Investment');
 
   const checking = await checkingFor(prisma, customerId);
@@ -143,7 +160,7 @@ export async function sell(
   input: { symbol: string; quantity: number },
   now = new Date(),
 ) {
-  const current = quote(input.symbol, now);
+  const current = await livePriceFor(input.symbol, now);
   if (!current) throw ApiError.notFound('Investment');
 
   const holding = await prisma.holding.findUnique({ where: { customerId_symbol: { customerId, symbol: current.symbol } } });

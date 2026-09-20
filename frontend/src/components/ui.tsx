@@ -158,7 +158,7 @@ export function StatCard({
     tone === 'ink'
       ? 'bg-ink-sheen text-canvas border-transparent'
       : tone === 'accent'
-        ? 'bg-accent-sheen text-white border-transparent'
+        ? 'bg-accent-sheen text-on-accent border-transparent'
         : 'bg-surface text-ink-900 border-line';
 
   return (

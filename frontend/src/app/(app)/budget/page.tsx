@@ -7,7 +7,7 @@
 // Households share one plan through a passkey, so a couple (or a parent and a
 // working teenager) can see the same picture.
 import { useCallback, useEffect, useState } from 'react';
-import { money, type BudgetMethod, type BudgetResponse } from '@/lib/api';
+import { money, type BudgetMethod, type BudgetResponse, type HouseholdInvite, type HouseholdRole } from '@/lib/api';
 import { formatCents } from '@/lib/format';
 import { Chip, ErrorState, Field, PageHeader, Progress, SectionCard, Segmented, Sheet, Skeleton } from '@/components/ui';
 import { useToast } from '@/components/Toast';
@@ -15,9 +15,9 @@ import { useT } from '@/lib/i18n';
 import { askOri } from '@/components/ori/OriAssistant';
 
 const STATUS_SKIN = {
-  comfortable: 'bg-accent-sheen text-white',
-  tight: 'bg-warn-500 text-white',
-  short: 'bg-danger-500 text-white',
+  comfortable: 'bg-accent-sheen text-on-accent',
+  tight: 'bg-warn-500 text-on-warn',
+  short: 'bg-danger-500 text-on-danger',
 } as const;
 
 export default function BudgetPage() {
@@ -57,7 +57,7 @@ export default function BudgetPage() {
             <h2 className="mt-2 font-display text-[1.375rem] font-bold leading-snug sm:text-2xl">{data.forecast.headline}</h2>
             <p className="mt-2 max-w-prose text-sm leading-relaxed opacity-90">{data.forecast.advice}</p>
 
-            <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-white/25 pt-4 sm:grid-cols-4">
+            <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-canvas/25 pt-4 sm:grid-cols-4">
               {[
                 ['Safe per day', formatCents(data.forecast.safeDailyCents)],
                 ['Left over monthly', formatCents(data.forecast.monthlySurplusCents)],
@@ -177,6 +177,8 @@ export default function BudgetPage() {
 
           {/* Household */}
           <SectionCard title="Share this plan">
+            <IncomingInvites onJoined={(next) => { setData(next); toast.show('You’re sharing a budget now', 'success'); }} />
+
             {data.household ? (
               <>
                 <p className="text-sm text-ink-700">
@@ -194,6 +196,10 @@ export default function BudgetPage() {
                     </li>
                   ))}
                 </ul>
+                {data.household.role === 'owner' && (
+                  <InviteByUsername householdName={data.household.name} onInvited={(name) => toast.show(`Invite sent to ${name}`, 'success')} />
+                )}
+
                 <button
                   onClick={async () => {
                     setData(await money.leaveHousehold());
@@ -207,8 +213,9 @@ export default function BudgetPage() {
             ) : (
               <>
                 <p className="text-sm leading-relaxed text-ink-700">
-                  Budget together with a partner, or with a teenager who has started working. You share one passkey — no email
-                  invitations, nothing posted publicly — and anyone can leave at any time.
+                  Budget together with a partner, or with a teenager who has started working. Invite them by their Orbit
+                  username, or share a one-time passkey if you are in the same room. Either way they have to accept, and
+                  anyone can leave at any time.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
@@ -283,6 +290,167 @@ export default function BudgetPage() {
         />
       </Sheet>
     </div>
+  );
+}
+
+
+/**
+ * Invite someone to the household by username.
+ *
+ * Deliberately not a "share this link" flow: a link that joins a household is a
+ * link that can be forwarded, and this one exposes what two people earn. The
+ * invite is addressed to one account and only that account can accept it.
+ */
+function InviteByUsername({ householdName, onInvited }: { householdName: string; onInvited: (name: string) => void }) {
+  const [username, setUsername] = useState('');
+  const [role, setRole] = useState<HouseholdRole>('partner');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState<HouseholdInvite[]>([]);
+
+  const refresh = useCallback(() => {
+    money.householdInvites().then((r) => setSent(r.sent.filter((i) => i.status === 'pending'))).catch(() => setSent([]));
+  }, []);
+  useEffect(refresh, [refresh]);
+
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const invite = await money.inviteToHousehold(username.trim(), role);
+      setUsername('');
+      onInvited(invite.to.name);
+      refresh();
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 rounded-2xl bg-surface-sunken p-4">
+      <h3 className="text-sm font-semibold text-ink-900">Add someone to {householdName}</h3>
+      <p className="mt-1 text-xs leading-relaxed text-ink-600">
+        Type their Orbit username. They will see the invite in the app and choose whether to accept — nothing of theirs is
+        shared until they do.
+      </p>
+
+      <form
+        className="mt-3 flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (username.trim()) void submit();
+        }}
+      >
+        <label className="min-w-[10rem] flex-1">
+          <span className="label">Username</span>
+          <div className="relative mt-1">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-400">@</span>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="jordan"
+              className="field !pl-7"
+            />
+          </div>
+        </label>
+
+        <label className="min-w-[8rem]">
+          <span className="label">They are my</span>
+          <select value={role} onChange={(e) => setRole(e.target.value as HouseholdRole)} className="field mt-1">
+            <option value="partner">Partner</option>
+            <option value="teen">Teenager (earns their own)</option>
+            <option value="child">Child (no money of their own)</option>
+          </select>
+        </label>
+
+        <button className="btn-accent" disabled={busy || !username.trim()}>
+          {busy ? 'Sending…' : 'Send invite'}
+        </button>
+      </form>
+
+      {error && (
+        <p role="alert" className="mt-2 text-xs font-medium text-danger-600">
+          {error}
+        </p>
+      )}
+
+      {sent.length > 0 && (
+        <ul className="mt-4 space-y-2">
+          {sent.map((invite) => (
+            <li key={invite.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface px-3.5 py-2.5">
+              <span className="text-sm text-ink-800">
+                <strong className="font-semibold">{invite.to.name}</strong>
+                {invite.to.username && <span className="text-ink-500"> @{invite.to.username}</span>}
+                <span className="text-ink-500"> · waiting for them to accept</span>
+              </span>
+              <button
+                onClick={async () => {
+                  const next = await money.cancelInvite(invite.id);
+                  setSent(next.sent.filter((i) => i.status === 'pending'));
+                }}
+                className="btn-quiet !px-3 !py-1 text-xs"
+              >
+                Withdraw
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Invites waiting for me. Shown first, because someone is waiting on an answer. */
+function IncomingInvites({ onJoined }: { onJoined: (next: BudgetResponse) => void }) {
+  const [invites, setInvites] = useState<HouseholdInvite[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    money.householdInvites().then((r) => setInvites(r.received)).catch(() => setInvites([]));
+  }, []);
+
+  if (invites.length === 0) return null;
+
+  const respond = async (invite: HouseholdInvite, accept: boolean) => {
+    setBusy(invite.id);
+    try {
+      const next = await money.respondToInvite(invite.id, accept);
+      setInvites((current) => current.filter((i) => i.id !== invite.id));
+      if (accept) onJoined(next);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <ul className="mb-4 space-y-3">
+      {invites.map((invite) => (
+        <li key={invite.id} className="rounded-2xl border border-accent-300 bg-accent-50 p-4">
+          <p className="text-sm leading-relaxed text-ink-900">
+            <strong className="font-semibold">{invite.from}</strong> invited you to share the budget
+            {' '}&ldquo;{invite.household.name}&rdquo;.
+          </p>
+          {invite.note && <p className="mt-1 text-sm italic text-ink-700">&ldquo;{invite.note}&rdquo;</p>}
+          <p className="mt-2 text-xs leading-relaxed text-ink-700">
+            If you accept, you will both see the same plan and the money you each have counts toward it. You can leave
+            whenever you like.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={() => void respond(invite, true)} disabled={busy === invite.id} className="btn-accent !py-2">
+              {busy === invite.id ? 'One moment…' : 'Accept and share'}
+            </button>
+            <button onClick={() => void respond(invite, false)} disabled={busy === invite.id} className="btn-ghost !py-2">
+              No thanks
+            </button>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 

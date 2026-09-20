@@ -54,18 +54,23 @@ export function initial(name: string): string {
 /**
  * A stable colour per merchant, so the same service always looks the same.
  * Hashing the name avoids storing a colour for every merchant.
+ *
+ * These are the themed `cat-*` token pairs, not Tailwind's own palette. That
+ * matters: Tailwind's `bg-emerald-100` is a fixed pale green that does not
+ * change with the theme, so in dark mode every merchant mark became a pale
+ * blob — which is the "everything green turns white in dark mode" bug. Each
+ * pair below is defined twice in globals.css, once per theme.
  */
 export function merchantColor(name: string): string {
-  // Brand red is reserved for actions, so it's deliberately not in here.
   const palette = [
-    'bg-navy-100 text-navy-700',
-    'bg-amber-100 text-amber-800',
-    'bg-emerald-100 text-emerald-800',
-    'bg-sky-100 text-sky-800',
-    'bg-violet-100 text-violet-800',
-    'bg-teal-100 text-teal-800',
-    'bg-orange-100 text-orange-800',
-    'bg-indigo-100 text-indigo-800',
+    'bg-cat-1-surface text-cat-1-ink',
+    'bg-cat-2-surface text-cat-2-ink',
+    'bg-cat-3-surface text-cat-3-ink',
+    'bg-cat-4-surface text-cat-4-ink',
+    'bg-cat-5-surface text-cat-5-ink',
+    'bg-cat-6-surface text-cat-6-ink',
+    'bg-cat-7-surface text-cat-7-ink',
+    'bg-cat-8-surface text-cat-8-ink',
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;

@@ -101,11 +101,20 @@ export function pointsForPurchase(input: { amountCents: number; category: string
   };
 }
 
-/** Concrete, personal advice on earning more, from where the money already goes. */
+/**
+ * Concrete, personal advice on earning more, from where the money already goes.
+ *
+ * `card` is the best card they already hold, not just the first one, and `held`
+ * lists every card they have. Both matter: comparing against the first card
+ * made Orbit recommend a card the customer was already carrying, and quoted an
+ * "upgrade" they had already made.
+ */
 export function earnMoreTips(input: {
   card: CardProductSpec;
   monthlyByCategory: { category: string; cents: number }[];
   allCards?: CardProductSpec[];
+  /** Product ids the customer already holds. Never recommended. */
+  held?: string[];
 }): { title: string; body: string; extraPointsPerMonth: number }[] {
   const tips: { title: string; body: string; extraPointsPerMonth: number }[] = [];
 
@@ -124,10 +133,17 @@ export function earnMoreTips(input: {
   const monthlyTotal = input.monthlyByCategory.reduce((s, c) => s + c.cents, 0);
   const earnWith = (card: CardProductSpec) =>
     input.monthlyByCategory.reduce((sum, c) => sum + Math.floor((c.cents / 100) * earnRateFor(card, c.category).rate), 0);
-  const current = earnWith(input.card);
+
+  // Measured against the best card they already carry. Anything less would make
+  // a card they already have look like an upgrade.
+  const held = new Set(input.held ?? [input.card.id]);
+  const current = Math.max(
+    earnWith(input.card),
+    ...(input.allCards ?? []).filter((c) => held.has(c.id)).map(earnWith),
+  );
 
   for (const candidate of input.allCards ?? []) {
-    if (candidate.id === input.card.id) continue;
+    if (held.has(candidate.id)) continue;
     const gain = earnWith(candidate) - current;
     const feeInPoints = centsToPoints(candidate.annualFeeCents) / 12;
     const net = Math.round(gain - feeInPoints);

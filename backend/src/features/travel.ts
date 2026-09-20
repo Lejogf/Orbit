@@ -400,3 +400,105 @@ export function rankOffers(
     })
     .sort((a, b) => b.projectedCents - a.projectedCents || Number(b.youShopHere) - Number(a.youShopHere));
 }
+
+// --- cancellations -------------------------------------------------------
+//
+// Plans change, and a trip you cannot get out of is a trip you regret booking.
+// So Orbit cancels in-app, and the fee is stated before anything is cancelled
+// rather than discovered afterwards.
+//
+// The fee is a real one, priced the way airlines and hotels actually price it:
+// it falls to nothing inside a cooling-off window, and rises as departure gets
+// closer, because that is when the seat or room stops being resellable.
+//
+// Three things it never does:
+//   * charge more than was paid — a cancellation cannot leave you owing money;
+//   * keep the miles you spent — those come back in full, always, because
+//     points are ours to return and it costs the customer nothing to wait;
+//   * silently keep a price-drop refund already paid out.
+
+/** Cancel within this long of booking and it is free, whatever the date. */
+export const FREE_CANCELLATION_HOURS = 24;
+
+/** Never more than this share of what was paid, however late. */
+export const MAX_CANCELLATION_SHARE = 0.5;
+
+export interface CancellationQuote {
+  /** What can still be given back, in cents. */
+  refundCents: number;
+  /** What Orbit keeps, in cents. */
+  feeCents: number;
+  /** Miles returned. Always all of them. */
+  milesRefunded: number;
+  /** Why the fee is what it is, in plain words. */
+  reason: string;
+  /** True while the free window is still open. */
+  free: boolean;
+  /** Hours left of the free window, or 0 once it has closed. */
+  freeWindowHoursLeft: number;
+}
+
+/**
+ * What cancelling this booking would cost.
+ *
+ * `paidCardCents` is what actually hit the card, so a booking paid entirely in
+ * miles or covered by the travel credit has nothing to take a fee from — and
+ * correctly quotes a fee of zero rather than inventing a debt.
+ */
+export function quoteCancellation(input: {
+  kind: string;
+  paidCardCents: number;
+  paidMilesCents: number;
+  refundedCents: number;
+  bookedAt: Date;
+  departsAt: Date;
+  now: Date;
+}): CancellationQuote {
+  // A price-drop refund has already been paid out, so it is not refundable
+  // twice. What is left on the card is the most that can come back.
+  const refundable = Math.max(0, input.paidCardCents - input.refundedCents);
+  const milesRefunded = input.paidMilesCents;
+
+  const hoursSinceBooking = (input.now.getTime() - input.bookedAt.getTime()) / 3_600_000;
+  const freeWindowHoursLeft = Math.max(0, FREE_CANCELLATION_HOURS - hoursSinceBooking);
+
+  if (freeWindowHoursLeft > 0) {
+    return {
+      refundCents: refundable,
+      feeCents: 0,
+      milesRefunded,
+      free: true,
+      freeWindowHoursLeft: Math.ceil(freeWindowHoursLeft),
+      reason: `Free — you booked less than ${FREE_CANCELLATION_HOURS} hours ago. Everything comes back, including your miles.`,
+    };
+  }
+
+  const daysOut = (input.departsAt.getTime() - input.now.getTime()) / 86_400_000;
+
+  // A hotel room resells far more easily than a seat on a specific flight, so
+  // its fee is gentler at every distance.
+  const bands: { minDays: number; flight: number; hotel: number; label: string }[] = [
+    { minDays: 30, flight: 0.05, hotel: 0, label: 'more than a month away' },
+    { minDays: 14, flight: 0.1, hotel: 0.05, label: 'two weeks to a month away' },
+    { minDays: 7, flight: 0.2, hotel: 0.1, label: 'one to two weeks away' },
+    { minDays: 2, flight: 0.35, hotel: 0.2, label: 'within a week' },
+    { minDays: -Infinity, flight: 0.5, hotel: 0.35, label: 'within 48 hours of departure' },
+  ];
+  const band = bands.find((b) => daysOut >= b.minDays)!;
+  const rate = Math.min(MAX_CANCELLATION_SHARE, input.kind === 'hotel' ? band.hotel : band.flight);
+
+  const feeCents = Math.min(refundable, Math.round(refundable * rate));
+  const refundCents = refundable - feeCents;
+
+  return {
+    refundCents,
+    feeCents,
+    milesRefunded,
+    free: false,
+    freeWindowHoursLeft: 0,
+    reason:
+      feeCents === 0
+        ? `No fee — this ${input.kind === 'hotel' ? 'stay' : 'trip'} is ${band.label}, and there is nothing left on the card to charge one against.`
+        : `${Math.round(rate * 100)}% fee because the ${input.kind === 'hotel' ? 'stay' : 'flight'} is ${band.label}. Any miles you spent come back in full.`,
+  };
+}

@@ -106,8 +106,8 @@ export default function CreditPage() {
                   <span
                     className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-[11px] font-bold ${
                       selected
-                        ? 'border-ink-600 bg-ink-600 text-white'
-                        : 'border-slate-300 text-transparent'
+                        ? 'border-ink-600 bg-ink-600 text-canvas'
+                        : 'border-line-strong text-transparent'
                     }`}
                     aria-hidden="true"
                   >
@@ -231,7 +231,7 @@ function ScoreDial({
   const baselinePosition = ((baseline - range.min) / span) * 100;
 
   return (
-    <section className="card overflow-hidden bg-ink-800 p-6 text-white sm:p-8">
+    <section className="card overflow-hidden bg-ink-800 p-6 text-canvas sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-200">
@@ -242,7 +242,7 @@ function ScoreDial({
             {delta !== 0 && (
               <span
                 className={`rounded-full px-2.5 py-1 text-sm font-bold tnum ${
-                  delta > 0 ? 'bg-accent-600 text-white' : 'bg-accent-500 text-white'
+                  delta > 0 ? 'bg-accent-600 text-on-accent' : 'bg-accent-500 text-on-accent'
                 }`}
               >
                 {delta > 0 ? '+' : ''}
@@ -259,7 +259,7 @@ function ScoreDial({
         {simulating && (
           <button
             onClick={onReset}
-            className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
+            className="rounded-full bg-canvas/15 px-3.5 py-1.5 text-xs font-semibold text-canvas transition hover:bg-canvas/25"
           >
             Reset
           </button>
@@ -268,14 +268,14 @@ function ScoreDial({
 
       {/* Band scale */}
       <div className="mt-7">
-        <div className="relative h-2.5 overflow-hidden rounded-full bg-white/15">
+        <div className="relative h-2.5 overflow-hidden rounded-full bg-canvas/20">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-brand-500 via-amber-400 to-money-600 transition-all duration-500"
+            className="h-full rounded-full bg-gradient-to-r from-accent-500 via-warn-400 to-accent-600 transition-all duration-500"
             style={{ width: `${position}%` }}
           />
           {simulating && (
             <div
-              className="absolute top-0 h-full w-0.5 bg-white/70"
+              className="absolute top-0 h-full w-0.5 bg-canvas/70"
               style={{ left: `${baselinePosition}%` }}
               aria-hidden="true"
             />

@@ -120,7 +120,7 @@ export default function SplitPage() {
           ] as const
         ).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={mode === id} onClick={() => setMode(id)}
-            className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${mode === id ? 'bg-ink-600 text-white' : 'text-ink-600 hover:bg-navy-50'}`}>
+            className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${mode === id ? 'bg-ink-600 text-canvas' : 'text-ink-600 hover:bg-navy-50'}`}>
             {label}
           </button>
         ))}
@@ -168,7 +168,7 @@ export default function SplitPage() {
                             const current = a[item.id] ?? [];
                             return { ...a, [item.id]: on ? current.filter((x) => x !== p.id) : [...current, p.id] };
                           })}
-                          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${on ? 'bg-ink-600 text-white' : 'bg-surface-sunken text-ink-700 hover:bg-ink-100'}`}>
+                          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${on ? 'bg-ink-600 text-canvas' : 'bg-surface-sunken text-ink-700 hover:bg-ink-100'}`}>
                           {p.name}
                         </button>
                       );

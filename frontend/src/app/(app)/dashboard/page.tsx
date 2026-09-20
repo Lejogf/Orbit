@@ -104,7 +104,7 @@ export default function DashboardPage() {
                 href={action.href}
                 className="group flex flex-col items-center gap-2 rounded-2xl border border-line bg-surface p-3 text-center shadow-card transition-all duration-200 ease-spring hover:-translate-y-0.5 hover:shadow-raised"
               >
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-accent-100 text-accent-700 transition-colors group-hover:bg-accent-500 group-hover:text-white">
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-accent-100 text-accent-700 transition-colors group-hover:bg-accent-500 group-hover:text-on-accent">
                   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d={action.icon} />
                   </svg>
@@ -158,12 +158,16 @@ export default function DashboardPage() {
                       last4={card.last4}
                       holder={`${session.customer.firstName} ${session.customer.lastName}`}
                       art={card.art}
+                      funding={card.funding}
                       locked={card.isLocked}
                       business={card.kind === 'business'}
                     />
                     <p className="mt-2 flex items-center justify-between gap-2 text-xs text-ink-600">
                       <span>{card.availableCents !== null ? `${formatCents(card.availableCents)} available` : card.nickname}</span>
-                      <span className="font-semibold text-ink-800">{formatCents(card.balanceCents)} owed</span>
+                      {/* Never says "owed" about a debit card: nothing is. */}
+                      <span className="font-semibold text-ink-800">
+                        {card.funding === 'debit' ? 'Debit' : `${formatCents(card.balanceCents)} owed`}
+                      </span>
                     </p>
                   </Link>
                 ))}

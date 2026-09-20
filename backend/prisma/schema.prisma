@@ -1,0 +1,415 @@
+// Two kinds of table: mirrors of Nessie data (Customer, Account, Merchant,
+// Transaction), and records Nessie has no concept of (guard rules, virtual cards,
+// plans, alerts), which link back by nessieId where a counterpart exists.
+//
+// SQLite has no native enums, so status columns are Strings with allowed values
+// documented on the field.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id         String   @id @default(cuid())
+  nessieId   String?  @unique
+
+  // --- identity, fixed after signup ---
+  // A bank cannot let these change self-service: they are what the account was
+  // opened against and what identity checks were run on. Changing them requires
+  // documentation, so the UI shows them locked with a reason.
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime?
+  /// Last four digits only. A real system would never hold the rest here.
+  ssnLast4    String?
+
+  // --- credentials ---
+  email        String  @unique
+  /// scrypt hash. Never the password itself.
+  passwordHash String
+  /// Random per-user salt for the hash above.
+  passwordSalt String
+
+  // --- contact details, editable ---
+  phone         String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  state         String?
+  postalCode    String?
+
+  /// Lets the seed find the one demo customer on a re-run.
+  isDemoUser Boolean  @default(false)
+
+  /// Fallback credit score. The live figure is ESTIMATED from behaviour by
+  /// features/creditScore.ts; this is only used before there is enough data,
+  /// and is what gets mirrored onto a Nessie loan.
+  creditScore    Int @default(742)
+
+  /// When this person's credit history began — typically long before they
+  /// joined Flow. Length of history is 15% of a score, so assuming it starts at
+  /// signup would badly understate an established borrower.
+  creditHistoryStartedAt DateTime?
+  /// Missed instalments on record; enough of them drops the pricing band.
+  missedPayments Int @default(0)
+
+  /// Set when the customer closes their account. The row is kept rather than
+  /// deleted, because financial records have to survive closure.
+  closedAt DateTime?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  accounts     Account[]
+  preferences  Preference?
+  sessions     Session[]
+}
+
+/// Notification and statement preferences. One row per customer.
+model Preference {
+  id         String @id @default(cuid())
+  customerId String @unique
+
+  /// Per-category notification switches.
+  alertsPush  Boolean @default(true)
+  alertsEmail Boolean @default(true)
+  alertsSms   Boolean @default(false)
+
+  /// Marketing is opt-in, and deliberately defaults to off.
+  marketingEmail Boolean @default(false)
+
+  /// Paperless statements.
+  paperless Boolean @default(true)
+
+  /// Warn when Safe to Spend drops below this, in cents. Null disables it.
+  lowBalanceThresholdCents Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+/// A signed-in session. Looked up by an opaque token held in an httpOnly cookie.
+model Session {
+  id         String   @id @default(cuid())
+  customerId String
+  /// Random opaque token. Never derived from anything guessable.
+  token      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  /// Set when the user signs out, so the row can be kept for auditing.
+  revokedAt  DateTime?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+model Account {
+  id         String  @id @default(cuid())
+  nessieId   String? @unique
+  customerId String
+
+  /// "Checking" | "Savings" | "Credit Card"
+  type     String
+  nickname String
+  last4    String
+
+  /// Cents. Never floats for money.
+  balanceCents Int @default(0)
+  /// Credit cards only.
+  creditLimitCents Int?
+  /// Credit cards only: rewards balance in cents.
+  rewardsCents Int @default(0)
+  /// Card lock. A locked card declines every charge.
+  isLocked Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer         Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transactions     Transaction[]
+  subscriptions    Subscription[]
+  virtualCards     VirtualCard[]
+  installmentPlans InstallmentPlan[]
+
+  @@index([customerId])
+}
+
+model Merchant {
+  id       String  @id @default(cuid())
+  nessieId String? @unique
+  name     String
+
+  /// Used to spot overlapping services in the same category.
+  category String @default("Other")
+  cancelUrl String?
+
+  /// Last time the user actually used this service. Nessie has no engagement
+  /// data, so the seed supplies this to stand in for the usage telemetry a real
+  /// bank would receive. Drives the "looks unused" flag.
+  lastUsedAt DateTime?
+
+  /// What a free trial will charge once it converts, in cents. A $0 trial
+  /// authorisation can't reveal this, but the price is public, so it stands in
+  /// for the merchant pricing a real bank would have on file.
+  trialConvertsToCents Int?
+
+  transactions  Transaction[]
+  subscriptions Subscription[]
+  virtualCards  VirtualCard[]
+
+  @@index([name])
+}
+
+model Transaction {
+  id        String  @id @default(cuid())
+  nessieId  String? @unique
+  accountId String
+  merchantId String?
+
+  /// "purchase" | "deposit" | "withdrawal" | "transfer"
+  source String
+
+  /// Signed cents. Negative = money out.
+  amountCents Int
+  description String
+  postedAt    DateTime
+
+  category String @default("Other")
+
+  subscriptionId String?
+
+  createdAt DateTime @default(now())
+
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  merchant     Merchant?     @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, postedAt])
+  @@index([merchantId])
+  @@index([subscriptionId])
+}
+
+model Subscription {
+  id         String  @id @default(cuid())
+  accountId  String
+  merchantId String
+
+  /// Denormalised so the list renders without a join.
+  merchantName String
+  category     String @default("Other")
+
+  /// Typical charge, positive. Individual charges may vary slightly.
+  amountCents Int
+  /// "weekly" | "monthly" | "yearly"
+  frequency   String
+  /// Mean gap between charges. Drives next-charge prediction.
+  intervalDays Int
+
+  nextChargeDate DateTime
+  lastChargeDate DateTime
+
+  /// 0..1
+  confidence Float @default(0)
+
+  /// active | guarded (ask first) | blocked (permanent) | canceled
+  status String @default("active")
+
+  // Detection flags, surfaced as cards in the UI.
+  hasPriceIncrease   Boolean @default(false)
+  previousAmountCents Int?
+  isFreeTrial        Boolean @default(false)
+  isDuplicate        Boolean @default(false)
+  looksUnused        Boolean @default(false)
+
+  nessieBillId String?
+
+  /// Starts the Money Saved clock.
+  savedFromDate DateTime?
+
+  /// Last time the user actually used the service. Nessie has no engagement data,
+  /// so this is seeded to stand in for the usage telemetry a real bank would get
+  /// from the merchant. Drives the "looks unused" flag.
+  lastUsedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account      Account                @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  merchant     Merchant               @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  guardRule    SubscriptionGuardRule?
+  virtualCard  VirtualCard?
+  reminders    Reminder[]
+  alerts       Alert[]
+
+  @@unique([accountId, merchantId])
+  @@index([status])
+}
+
+model SubscriptionGuardRule {
+  id             String @id @default(cuid())
+  subscriptionId String @unique
+
+  /// "ask_first" | "blocked"
+  mode String @default("ask_first")
+
+  /// Approving lets the NEXT attempt through, then reverts to asking.
+  oneTimeApprovalUntil DateTime?
+
+  declinedCount Int @default(0)
+  approvedCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
+
+model VirtualCard {
+  id             String  @id @default(cuid())
+  accountId      String
+  merchantId     String
+  subscriptionId String? @unique
+
+  /// Display-only mock PAN. Not a real card number.
+  number String
+  last4  String
+  expMonth Int
+  expYear  Int
+  cvv    String
+
+  /// active | locked | deleted (deleting cancels the subscription)
+  status String @default("active")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([accountId])
+}
+
+model Reminder {
+  id             String @id @default(cuid())
+  subscriptionId String
+
+  /// 1 | 3 | 7, or any custom number of days.
+  daysBefore Int
+  fireAt     DateTime
+  firedAt    DateTime?
+
+  /// push | email | sms
+  ///
+  /// Push is the default: it is the bank's own authenticated channel, costs
+  /// nothing to send, and can deep-link straight to the Guard controls. Banks
+  /// also train customers that they will never be sent links by text, so using
+  /// SMS for this would mimic the exact pattern phishing relies on.
+  channel String @default("push")
+
+  createdAt DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, daysBefore])
+  @@index([fireAt])
+}
+
+model InstallmentPlan {
+  id        String @id @default(cuid())
+  accountId String
+
+  /// Plain id, so the plan survives the transaction mirror being rebuilt.
+  transactionId String?
+  merchantName  String
+  description   String
+
+  principalCents Int
+  /// 3 | 6 | 12 | 24
+  termMonths     Int
+  /// 0 for the 3-month promo.
+  monthlyFeeCents Int
+  /// e.g. 14.99. 0 for the promo tier.
+  aprPercent     Float @default(0)
+
+  monthlyPaymentCents Int
+  totalCostCents      Int
+  totalInterestCents  Int
+
+  /// Retained for auditability: excellent | good | fair | poor
+  creditBand String
+  creditScoreAtOrigination Int?
+
+  startDate  DateTime
+  payoffDate DateTime
+
+  /// "active" | "paid_off" | "canceled"
+  status String @default("active")
+
+  nessieLoanId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account  Account              @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  payments InstallmentPayment[]
+
+  @@index([accountId, status])
+}
+
+model InstallmentPayment {
+  id     String @id @default(cuid())
+  planId String
+
+  sequence    Int
+  dueDate     DateTime
+  amountCents Int
+
+  /// "scheduled" | "paid"
+  status String    @default("scheduled")
+  paidAt DateTime?
+
+  plan InstallmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, sequence])
+  @@index([dueDate])
+}
+
+model Alert {
+  id             String  @id @default(cuid())
+  subscriptionId String?
+
+  /// charge_pending | charge_declined | charge_approved | trial_converting |
+  /// price_increase | duplicate_detected | renewal_reminder | plan_payment_due
+  kind String
+
+  title String
+  body  String
+
+  amountCents Int?
+
+  /// Pending alerts need a decision and drive the unread badge.
+  status String @default("pending")
+
+  /// How many times this has happened while still unresolved. A merchant retrying
+  /// a declined charge should bump this, not create another identical alert.
+  occurrences Int @default(1)
+
+  readAt     DateTime?
+  resolvedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}

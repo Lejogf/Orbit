@@ -37,6 +37,7 @@ every session and check the PROGRESS section at the bottom to see what's done.
 ## 1. Core banking shell (keep simple)
 
 Should feel like the real Capital One app, with these screens only:
+
 - Mocked login (one demo user, no real auth needed)
 - Home dashboard
 - Account list with balances
@@ -51,6 +52,7 @@ Match Capital One's real navigation patterns so it feels familiar.
 ## 2. HERO feature: Subscription Manager + Guard
 
 **Detection (server-side, own module with unit tests):**
+
 - Auto-detect recurring charges from transaction history: same merchant,
   similar amount (within a tolerance), regular interval (weekly, monthly,
   yearly). Give each a confidence score.
@@ -59,6 +61,7 @@ Match Capital One's real navigation patterns so it feels familiar.
   unused.
 
 **Subscriptions page:**
+
 - List of all subscriptions: logo/initial, amount, frequency, next charge
   date, category, status (Active / Guarded / Blocked).
 - Totals: monthly and yearly cost.
@@ -66,6 +69,7 @@ Match Capital One's real navigation patterns so it feels familiar.
 - "Money saved" tracker: annual savings from blocked/canceled subscriptions.
 
 **Actions per subscription:**
+
 - **"Ask me first" (Subscription Guard):** future charges from this merchant
   are declined, and the user gets an in-app alert: "Netflix tried to charge
   $15.49 — Approve / Keep blocked." Approving allows the merchant's next
@@ -78,6 +82,7 @@ Match Capital One's real navigation patterns so it feels familiar.
 - Link to the merchant's cancellation page.
 
 **Demo mode:**
+
 - A "Simulate renewal" button that sends a fake incoming charge through the
   Guard logic, so the approve/decline alert can be shown live.
 - A notification center/inbox for all alerts.
@@ -162,6 +167,7 @@ There may be no single "transactions" endpoint. Build transaction history by
 merging purchases, deposits, withdrawals, and transfers.
 
 **How to use Nessie for our features:**
+
 - Transaction history = merged purchases + deposits + withdrawals +
   transfers, joined with merchant data.
 - Subscriptions: detect them from recurring purchases. When a subscription is
@@ -251,11 +257,206 @@ mock mode.
 
 _Update this after every phase: what's done, what's left, known issues._
 
-- [ ] Phase 1
-- [ ] Phase 2
-- [ ] Phase 3
-- [ ] Phase 4
-- [ ] Phase 5
-- [ ] Phase 6
+- [x] **Phase 1** — setup, schema, Nessie client + mock fallback, endpoint
+      verification, seed script.
+- [x] **Phase 2** — core banking shell: mocked login, dashboard, accounts,
+      account detail with searchable/filterable transactions, card lock/unlock
+      and show/hide number, transfers. Responsive sidebar/bottom-tab layout.
+- [x] **Phase 3** — subscription detection, Subscriptions page with totals and
+      filters, Guard (ask-first / block), virtual cards, reminders, alert inbox,
+      Simulate renewal demo mode, Money Saved tracker.
+- [x] **Phase 4** — Pay Over Time: pricing module, plan picker with side-by-side
+      comparison, affordability check, credit impact preview, My Plans with
+      progress and early payoff.
+- [x] **Phase 5** — Safe to Spend, upcoming-payments timeline, cross-feature
+      updates (blocking a subscription moves Safe to Spend immediately).
+- [x] **Phase 6** — polish: animations, loading skeletons, empty and error
+      states, mobile verified at 375px, README with architecture and demo script.
 
-Nessie findings: _(fill in after Phase 1)_
+### Where things live
+
+```
+backend/src/features/   pure business logic, fully unit tested
+backend/src/services/   that logic joined to the database
+backend/src/data/       providers, demo dataset, sync
+backend/src/routes/     Express endpoints
+frontend/src/app/(app)/ the signed-in screens
+```
+
+139 tests: `npm test`. See README.md for architecture and the demo script.
+
+### Post-review fixes
+
+- `GET /accounts` was dropping `isLocked` and `rewardsCents`, so card lock looked
+  broken even though the endpoint worked. Mapper fixed; sync now persists rewards.
+- Virtual card "Regenerate" returned the same number, because the generator was
+  seeded on the subscription id alone. Seed now includes a timestamp.
+- Deleting a virtual card left a dead row in the UI and the subscription stuck as
+  cancelled. Delete now removes the row; issuing a new card revives the
+  subscription.
+- Added "Use my real card" to stop using a virtual number without cancelling.
+- Notifications are now toasts that auto-dismiss (5s info/success, 8s
+  warning/error) with a draining progress bar, pause on hover, and a close button.
+- Back navigation on every screen, using real history with an href fallback.
+- "Test charge" on each subscription row, so Simulate renewal is reachable
+  without opening the detail page first.
+- Custom reminder intervals (1–90 days) and delivery channels.
+- "What this costs you": already paid, next 12 months, 5 years.
+- Retinted to Capital One's navy/red palette; green is reserved for money saved
+  and income.
+
+### Second round of fixes
+
+- Toasts collapse duplicates into one with a count, and cap at 3 on screen.
+- Charge alerts dedupe: a retrying merchant bumps `Alert.occurrences` instead of
+  creating another identical row.
+- Card lock now documented and modelled correctly — it does NOT stop recurring
+  charges, which is real issuer behaviour and the reason Guard exists.
+- Instalment payments post a real transaction and reduce the card balance.
+- Back control removed from top-level sections; on detail pages it follows a
+  `?from=` origin hint so it returns where you came from.
+- `lib/sectionMemory.ts`: each nav section remembers its last position
+  (sessionStorage), expiring 30s after you leave it. Tapping the active section
+  resets it to the root. Storage key is versioned and every entry is shape-checked
+  on read — an earlier build stored bare path strings, and reading `.path` off
+  those produced undefined navigation targets.
+- Frontend now has its own test suite (`npm run test -w frontend`), 20 tests
+  covering the TTL boundaries and malformed storage.
+
+### Accounts, settings and auth
+
+- Real registration / sign-in / sign-out. scrypt password hashing with a per-user
+  salt, opaque session tokens in an httpOnly cookie, constant-time comparison.
+- Every API route is scoped to the signed-in customer; ids belonging to someone
+  else read as 404 rather than confirming they exist.
+- New accounts start empty and are offered their own copy of the sample data.
+- Settings separates editable fields from identity fields that a bank cannot let
+  you change self-service (legal name, DOB, SSN), shown locked with the reason.
+- Account closure checks balances, active plans and live subscriptions, requires
+  the password plus a typed confirmation, and retains the record.
+- Virtual card deletion no longer cancels the subscription implicitly — it asks
+  whether to cancel or move billing to the real card.
+
+### Known issues / notes
+
+- Nessie holds more transactions than the 300 in the mirror: early seed runs
+  duplicated records before the idempotency signature was fixed, and Nessie has
+  no DELETE for purchases. Harmless — the app reads the local mirror. For a clean
+  Nessie account, change the demo customer name in `backend/src/data/nessieProvider.ts`
+  and re-seed.
+- "Looks unused" comes from a seeded engagement signal; Nessie exposes no usage
+  data, so this stands in for merchant telemetry a real bank would receive.
+- Free-trial conversion prices come from a seeded merchant field, since a $0
+  trial authorisation cannot reveal what it will charge.
+
+---
+
+## NESSIE FINDINGS
+
+Verified against the live API, and against the official reference in
+`Nessi API docs/nessie-api.md`. Re-runnable with `npm run verify:nessie`.
+
+### Where the published docs are wrong
+
+| Docs say                          | Actually                                                                               |
+| --------------------------------- | -------------------------------------------------------------------------------------- |
+| POST returns a **message string** | Returns `{code, message, objectCreated}` **including `_id`** — no list re-fetch needed |
+| IDs are **24 characters**         | 36-character UUIDs                                                                     |
+| Purchases use `transaction_date`  | Uses **`purchase_date`**; `transaction_date` is rejected                               |
+
+### Confirmed correct
+
+- **Amounts are integers** for accounts, purchases, deposits, withdrawals,
+  transfers and loans. `15.49` stores as `15`, `0.99` as `0`. **Bills are the
+  exception** — `payment_amount` is a float and keeps exact cents.
+- **By-id paths are inconsistent:** `/purchase/{id}` and `/withdrawal/{id}` are
+  SINGULAR; `/deposits/{id}` and `/transfers/{id}` are plural. The wrong spelling
+  returns 403, not 404.
+- **`PUT /accounts/{id}` only accepts `nickname`.** Anything else is a 400.
+- **Balances never move on their own.** Posting purchases, deposits and
+  withdrawals leaves `balance` untouched, so we compute balances ourselves.
+- **`PUT /bills/{id}`** accepts partial updates, returns 202, and never breaks
+  readability — which is what makes the Guard status flow safe.
+- Merchant `category` may be a string or an array; the provider normalises both.
+
+### The bill serialization trap
+
+A bill needs **`nickname` + `payment_date` + `recurring_date`** to be readable.
+Omit any one and `GET /accounts/{id}/bills` returns **400 for that entire account,
+permanently** — one malformed bill poisons the whole collection.
+`upcoming_payment_date` is rejected on create but computed server-side.
+
+`NessieBillCreate` makes all three mandatory so this cannot happen.
+
+### Transfers can't record a destination
+
+`POST /accounts/{id}/transfers` accepts only
+`{transaction_date, status, amount, description}` — it rejects `payee_id`,
+`medium` and `type`. Both legs of an internal transfer are therefore written
+locally. GET returns `id` while POST returns `_id`; read it via `transferId()`.
+
+### Other notes
+
+- Empty collections return 404 rather than `[]`; the client treats a 404 on a
+  list as empty.
+- `DELETE` works for bills, loans, purchases and accounts. Not for customers.
+- `/merchants` is global and shared across every API key, so the provider narrows
+  it to merchants this customer actually transacted with.
+- There is no transactions endpoint — statements merge purchases, deposits,
+  withdrawals and transfers per account.
+- Loans have **no term field**, so the schedule stays in our database.
+  `credit_score` is required on create.
+
+## HOW NESSIE IS USED
+
+**Subscriptions are real Nessie bills.** Each detected subscription is mirrored
+via `POST /accounts/{id}/bills`, and its status tracks the Guard state:
+
+| Flow                          | Nessie bill status                                           |
+| ----------------------------- | ------------------------------------------------------------ |
+| Active                        | `recurring`                                                  |
+| Guarded ("ask me first")      | `pending` — the obligation exists but isn't scheduled to pay |
+| Blocked / cancelled           | `cancelled`                                                  |
+| Virtual card deleted + cancel | `DELETE /bills/{id}`                                         |
+
+Price changes push a new `payment_amount`. Because bills are floats, exact cents
+survive the round trip.
+
+**Pay Over Time plans are real Nessie loans.** `POST /accounts/{id}/loans` with
+`credit_score`, `monthly_payment` and `amount`; `PUT /loans/{id}` marks it
+`completed` on payoff. Term and schedule stay local.
+
+**Amounts:** the mirror is authoritative because Nessie truncates to whole
+dollars everywhere except bills. This is documented API behaviour, not a bug.
+Conversion happens only in the Nessie client layer.
+
+**Every upstream write is best-effort.** A Nessie failure logs and continues; it
+never blocks a user action. `USE_MOCK_DATA=true` or an unreachable API falls back
+to local mock data, verified after every change.
+
+## CREDIT SCORE
+
+`features/creditScore.ts` estimates a score from the five published FICO factors
+using data the app actually holds: payment history from instalment records,
+utilisation from card balance and limit, history length, account mix and recently
+opened lines. Pure functions, 26 unit tests.
+
+It is an **estimate, not a FICO score** — real scores include accounts at other
+lenders, credit checks and public records we cannot see. The UI says so plainly.
+
+The estimate drives Pay Over Time pricing through `bandForScore()`, so paying
+down the card or stopping subscriptions actually changes the APR offered. The
+`/credit` page lets the user stack what-if scenarios and watch the score move.
+
+### Known issues / notes
+
+- Nessie holds more transactions than the mirror: early seed runs duplicated
+  records before the idempotency signature was fixed, and Nessie has no DELETE
+  for purchases. Harmless — the app reads the mirror. `ZZ_AUDIT` and
+  `ZZ_FLOW_PROBE` records are left over from endpoint verification.
+- Bills accumulated across seeds before re-adoption was added; `mirrorBillToNessie`
+  now adopts an existing bill by payee rather than creating a duplicate.
+- "Looks unused" comes from a seeded engagement signal; Nessie exposes no usage
+  data, so it stands in for merchant telemetry a real bank would receive.
+- Free-trial conversion prices come from a seeded merchant field, since a $0
+  trial authorisation cannot reveal what it will charge.

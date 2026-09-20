@@ -1,0 +1,25 @@
+{
+  "name": "capital-one-flow",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Capital One Flow \u2014 see and control money that's already committed",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,magenta \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run clean && npm run build -w backend && npm run build -w frontend",
+    "seed": "npm run seed -w backend",
+    "verify:nessie": "npm run verify:nessie -w backend",
+    "test": "npm run test -w backend && npm run test -w frontend",
+    "db:push": "npm run db:push -w backend",
+    "clean": "rm -rf frontend/.next frontend/tsconfig.tsbuildinfo node_modules/.cache"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

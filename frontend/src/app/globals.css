@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --canvas: #f4f6f9;
+}
+
+html,
+body {
+  background: var(--canvas);
+  color: #001c2e;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,28,46,0.05),0_6px_20px_-14px_rgba(0,28,46,0.18)];
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold
+           transition-all duration-150 focus-visible:outline-none focus-visible:ring-2
+           focus-visible:ring-navy-600 focus-visible:ring-offset-2 disabled:pointer-events-none
+           disabled:opacity-50;
+  }
+  /* Capital One uses a red pill for the primary action. */
+  .btn-primary {
+    @apply btn bg-brand-500 text-white hover:bg-brand-600 active:scale-[0.98];
+  }
+  .btn-accent {
+    @apply btn bg-navy-600 text-white hover:bg-navy-700 active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply btn border border-navy-600 bg-white text-navy-600 hover:bg-navy-50 active:scale-[0.98];
+  }
+  .btn-danger {
+    @apply btn border border-brand-200 bg-white text-brand-600 hover:bg-brand-50 active:scale-[0.98];
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+
+  .label {
+    @apply text-xs font-semibold uppercase tracking-wider text-navy-500;
+  }
+
+  /* Tabular figures stop columns of money jittering as values change. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-rise {
+  animation: rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Toasts slide in, hold, then fade out on their own. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+.animate-toast-in {
+  animation: toast-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-toast-out {
+  animation: toast-out 0.35s ease-in forwards;
+}
+
+/* The bar that drains while a toast is on screen. */
+@keyframes drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.animate-drain {
+  transform-origin: left;
+  animation: drain linear forwards;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.skeleton {
+  @apply relative overflow-hidden rounded-lg bg-slate-200/70;
+}
+.skeleton::after {
+  content: '';
+  @apply absolute inset-0 -translate-x-full;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.6) 60%,
+    rgba(255, 255, 255, 0)
+  );
+  animation: shimmer 1.6s infinite;
+}

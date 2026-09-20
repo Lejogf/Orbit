@@ -11,6 +11,9 @@ import { useState } from 'react';
 import { ApiRequestError, auth, type Preferences, type Profile } from '@/lib/api';
 import { formatCents, formatLongDate } from '@/lib/format';
 import { PageHeader, Skeleton } from '@/components/ui';
+import { IdentityChanges } from '@/components/settings/IdentityChanges';
+import { UsernameAndContact } from '@/components/settings/UsernameAndContact';
+import { Documents } from '@/components/settings/Documents';
 import { useSession } from '@/components/AuthGuard';
 import { useToast } from '@/components/Toast';
 
@@ -53,13 +56,16 @@ export default function SettingsPage() {
       <PageHeader eyebrow="Settings" title="Account settings" />
 
       <ContactDetails customer={customer} busy={busy} run={run} />
+      <IdentityChanges customer={customer} onChanged={() => void refresh()} />
+      <UsernameAndContact customer={customer} onChanged={() => void refresh()} />
       <LockedDetails customer={customer} />
       <SecuritySection busy={busy} run={run} onSignedOutEverywhere={() => router.push('/')} />
       <NotificationSection preferences={preferences} busy={busy} run={run} />
+      <Documents />
 
       <section className="card p-6">
-        <h2 className="text-sm font-semibold text-navy-900">Session</h2>
-        <p className="mt-1 text-xs text-navy-600">
+        <h2 className="text-sm font-semibold text-ink-900">Session</h2>
+        <p className="mt-1 text-xs text-ink-600">
           Signed in as {customer.email}. Member since {formatLongDate(customer.memberSince)}.
         </p>
         <button onClick={signOut} disabled={busy !== null} className="btn-ghost mt-4">
@@ -90,8 +96,8 @@ function ContactDetails({
       <section className="card p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-sm font-semibold text-navy-900">Contact details</h2>
-            <p className="mt-1 text-xs text-navy-600">Where we reach you about your account.</p>
+            <h2 className="text-sm font-semibold text-ink-900">Contact details</h2>
+            <p className="mt-1 text-xs text-ink-600">Where we reach you about your account.</p>
           </div>
           <button onClick={() => setEditing(true)} className="btn-ghost">
             Edit
@@ -124,7 +130,7 @@ function ContactDetails({
 
   return (
     <section className="card p-6">
-      <h2 className="text-sm font-semibold text-navy-900">Edit contact details</h2>
+      <h2 className="text-sm font-semibold text-ink-900">Edit contact details</h2>
       <form
         className="mt-4 space-y-4"
         onSubmit={async (event) => {
@@ -177,14 +183,13 @@ function ContactDetails({
 function LockedDetails({ customer }: { customer: Profile }) {
   return (
     <section className="card p-6">
-      <h2 className="text-sm font-semibold text-navy-900">Identity</h2>
-      <p className="mt-1 text-xs leading-relaxed text-navy-600">
+      <h2 className="text-sm font-semibold text-ink-900">Identity</h2>
+      <p className="mt-1 text-xs leading-relaxed text-ink-600">
         These are what your account was opened and identity-checked against, so they can&rsquo;t be
         changed here. Call us on the number on the back of your card if any of them are wrong.
       </p>
 
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">
-        <Detail label="Legal name" value={`${customer.firstName} ${customer.lastName}`} locked />
         <Detail
           label="Date of birth"
           value={customer.dateOfBirth ? formatLongDate(customer.dateOfBirth) : 'Not on file'}
@@ -215,7 +220,7 @@ function SecuritySection({
 
   return (
     <section className="card p-6">
-      <h2 className="text-sm font-semibold text-navy-900">Security</h2>
+      <h2 className="text-sm font-semibold text-ink-900">Security</h2>
 
       {changing ? (
         <form
@@ -316,8 +321,8 @@ function NotificationSection({
 
   return (
     <section className="card p-6">
-      <h2 className="text-sm font-semibold text-navy-900">Notifications</h2>
-      <p className="mt-1 text-xs leading-relaxed text-navy-600">
+      <h2 className="text-sm font-semibold text-ink-900">Notifications</h2>
+      <p className="mt-1 text-xs leading-relaxed text-ink-600">
         How we tell you about charges, trials and price rises.
       </p>
 
@@ -327,7 +332,7 @@ function NotificationSection({
         {toggle('alertsSms', 'Text message')}
       </div>
 
-      <h3 className="mt-6 text-xs font-semibold uppercase tracking-wider text-navy-500">
+      <h3 className="mt-6 text-xs font-semibold uppercase tracking-wider text-ink-500">
         Everything else
       </h3>
       <div className="mt-2 space-y-1">
@@ -335,13 +340,13 @@ function NotificationSection({
         {toggle('marketingEmail', 'Product news and offers')}
       </div>
 
-      <div className="mt-5 border-t border-slate-100 pt-4">
+      <div className="mt-5 border-t border-line pt-4">
         <label htmlFor="lowBalance" className="label mb-1.5 block">
           Warn me when Safe to Spend drops below
         </label>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-navy-400">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400">
               $
             </span>
             <input
@@ -363,10 +368,10 @@ function NotificationSection({
                   cents === null ? 'Low balance warning off.' : `We'll warn you below ${formatCents(cents)}.`,
                 );
               }}
-              className="w-32 rounded-xl border border-slate-200 py-2 pl-7 pr-3 text-sm tnum outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20"
+              className="w-32 rounded-xl border border-line py-2 pl-7 pr-3 text-sm tnum outline-none focus:border-ink-500 focus:ring-2 focus:ring-ink-500/20"
             />
           </div>
-          <span className="text-xs text-navy-500">Leave blank to turn it off.</span>
+          <span className="text-xs text-ink-500">Leave blank to turn it off.</span>
         </div>
       </div>
     </section>
@@ -393,9 +398,9 @@ function CloseAccountSection({ customer, onClosed }: { customer: Profile; onClos
   };
 
   return (
-    <section className="card border-brand-200 p-6">
-      <h2 className="text-sm font-semibold text-navy-900">Close your account</h2>
-      <p className="mt-1 text-xs leading-relaxed text-navy-600">
+    <section className="card border-danger-200 p-6">
+      <h2 className="text-sm font-semibold text-ink-900">Close your account</h2>
+      <p className="mt-1 text-xs leading-relaxed text-ink-600">
         Closing is permanent. We keep your transaction history because financial records have to
         outlive the account, but you won&rsquo;t be able to sign in again.
       </p>
@@ -405,9 +410,9 @@ function CloseAccountSection({ customer, onClosed }: { customer: Profile; onClos
           {busy ? 'Checking…' : 'Close account'}
         </button>
       ) : blockers && blockers.length > 0 ? (
-        <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
-          <p className="text-sm font-semibold text-navy-900">Not yet — sort these out first</p>
-          <ul className="mt-2 space-y-1.5 text-sm text-navy-700">
+        <div className="mt-4 rounded-xl border border-warn-300 bg-warn-50 p-4">
+          <p className="text-sm font-semibold text-ink-900">Not yet — sort these out first</p>
+          <ul className="mt-2 space-y-1.5 text-sm text-ink-700">
             {blockers.map((reason) => (
               <li key={reason} className="flex gap-2">
                 <span aria-hidden="true">·</span>
@@ -421,7 +426,7 @@ function CloseAccountSection({ customer, onClosed }: { customer: Profile; onClos
         </div>
       ) : (
         <form
-          className="mt-4 space-y-4 rounded-xl border border-brand-200 bg-brand-50/60 p-4"
+          className="mt-4 space-y-4 rounded-xl border border-danger-200 bg-danger-50/60 p-4"
           onSubmit={async (event) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
@@ -444,7 +449,7 @@ function CloseAccountSection({ customer, onClosed }: { customer: Profile; onClos
           }}
         >
           {customer.isDemoUser && (
-            <p className="rounded-lg bg-white px-3 py-2 text-xs text-navy-700">
+            <p className="rounded-lg bg-surface px-3 py-2 text-xs text-ink-700">
               The demo account can&rsquo;t be closed — other people need it. Register your own
               account to try this.
             </p>
@@ -485,7 +490,7 @@ function Detail({ label, value, locked }: { label: string; value: string; locked
           </svg>
         )}
       </dt>
-      <dd className={`mt-1 text-sm ${locked ? 'text-navy-500' : 'font-medium text-navy-900'}`}>
+      <dd className={`mt-1 text-sm ${locked ? 'text-ink-500' : 'font-medium text-ink-900'}`}>
         {value}
       </dd>
     </div>
@@ -494,10 +499,10 @@ function Detail({ label, value, locked }: { label: string; value: string; locked
 
 function Row({ title, body, action }: { title: string; body: string; action: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-4">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line p-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-navy-900">{title}</p>
-        <p className="mt-0.5 text-xs leading-relaxed text-navy-600">{body}</p>
+        <p className="text-sm font-semibold text-ink-900">{title}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-ink-600">{body}</p>
       </div>
       {action}
     </div>
@@ -521,16 +526,16 @@ function Toggle({
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between rounded-lg px-1 py-2.5 text-left transition hover:bg-slate-50 disabled:opacity-60"
+      className="flex w-full items-center justify-between rounded-lg px-1 py-2.5 text-left transition hover:bg-surface-sunken disabled:opacity-60"
     >
-      <span className="text-sm text-navy-800">{label}</span>
+      <span className="text-sm text-ink-800">{label}</span>
       <span
         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-          checked ? 'bg-navy-600' : 'bg-slate-300'
+          checked ? 'bg-accent-500' : 'bg-ink-300'
         }`}
       >
         <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface shadow transition-transform ${
             checked ? 'translate-x-[1.375rem]' : 'translate-x-0.5'
           }`}
         />
@@ -553,10 +558,10 @@ function Input({
       <input
         id={name}
         name={name}
-        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-navy-900 outline-none transition focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20"
+        className="w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink-900 outline-none transition focus:border-ink-500 focus:ring-2 focus:ring-ink-500/20"
         {...rest}
       />
-      {hint && <p className="mt-1 text-[11px] text-navy-500">{hint}</p>}
+      {hint && <p className="mt-1 text-[11px] text-ink-500">{hint}</p>}
     </div>
   );
 }

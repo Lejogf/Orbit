@@ -1,255 +1,235 @@
-# Capital One Flow — Project Instructions
+# Orbit — Project Instructions
 
-You are building a hackathon project called **Capital One Flow**: a redesigned
-Capital One banking web app that helps users see and control money that's
-already committed (subscriptions and installment payments).
+**Orbit** is a banking app built for a hackathon on top of Capital One's Nessie
+API. It began as "Capital One Flow" (a subscription manager) and grew into a
+full banking product with its own brand: Orbit, whose assistant is **Ori**.
 
-This file is the source of truth for the project. Re-read it at the start of
-every session and check the PROGRESS section at the bottom to see what's done.
+The thesis has not changed: **most of your money is spoken for before you wake
+up**. Orbit's job is to show what is genuinely yours to spend, and then help you
+keep more of it — through subscriptions you can stop, rewards that are honestly
+priced, a budget that answers "will I be OK?", and investing that starts at $1.
+
+This file is the source of truth. Re-read it at the start of every session and
+check PROGRESS to see what is built.
 
 ---
 
 ## How to work
 
-- Build in the phases listed under BUILD PHASES. Do one phase at a time.
-- Before starting a phase, show me a short plan. After finishing a phase:
-  stop, summarize what you built, tell me exactly how to run it, and wait for
-  my go-ahead before continuing.
-- After each phase, update the PROGRESS section at the bottom of this file.
-- If something in this spec is impossible or unclear, tell me instead of
+- Before a large piece of work, show a short plan. Afterwards: summarise what
+  was built, say exactly how to run it, and update PROGRESS in this file.
+- If something here is impossible, wrong, or unclear, say so instead of
   guessing.
 - Never read aloud, print, log, or hardcode the contents of `.env`.
+- Pure logic goes in `features/` with unit tests. Database work goes in
+  `services/`. Routes stay thin and validate their input with zod.
+- Never hardcode a colour in the frontend. `bg-white` does not follow the theme;
+  `bg-surface` does. See "The design system" below.
+- Do not ship other companies' logos or trademarks. Merchant marks are generated
+  locally from brand colours and initials (`MerchantMark` in `components/ui.tsx`).
 
 ---
 
-## Priorities (in order)
+## What Orbit does
 
-1. **Subscription Manager + Subscription Guard** — the HERO feature. Most
-   effort and polish go here.
-2. **Pay Over Time** (card installment plans) — strong, working, polished,
-   but secondary.
-3. **Safe to Spend + upcoming payments timeline** — ties both features
-   together.
-4. **Core banking shell** — simple, clean, familiar. Don't over-build it.
+### 1. See what's really yours
 
----
+- **Home** opens with a greeting by time of day, then **available balance**,
+  what is already committed before payday, and what is free to spend.
+- Quick actions — send, request, deposit, move — then your cards, what is coming
+  up, and anything that needs a decision pulled to the top.
+- **Spending** groups every purchase by category with a colour-blind-safe donut,
+  a six-month trend, weekday habits, and insights that always state the number
+  behind the claim.
 
-## 1. Core banking shell (keep simple)
+### 2. Subscriptions and Guard (the original hero feature)
 
-Should feel like the real Capital One app, with these screens only:
+- Recurring charges are detected from transaction history: same merchant,
+  similar amount, regular interval, each with a confidence score. Flags price
+  increases, trials about to convert, overlapping services and unused ones.
+- **Ask me first (Guard)** declines the next charge and raises an alert you can
+  approve once. **Block** stops it permanently. **Virtual cards** give each
+  merchant its own number. **Reminders** warn you 1–90 days ahead.
+- "Simulate renewal" pushes a real charge through the Guard rules so the
+  approve/decline flow can be demonstrated live.
 
-- Mocked login (one demo user, no real auth needed)
-- Home dashboard
-- Account list with balances
-- Account detail with searchable/filterable transaction history
-- Card details: lock/unlock card, show/hide card number, rewards balance
-- Simple transfer between the user's own accounts
+### 3. Cards
 
-Match Capital One's real navigation patterns so it feels familiar.
+Five products, each stating only what people compare — what it earns and what it
+costs:
 
----
+| Card           | Fee  | Earns                                             |
+| -------------- | ---- | ------------------------------------------------- |
+| Orbit Start    | none | 1x everything — building credit from zero         |
+| Orbit Move     | none | 1.5x everything, 3x dining                        |
+| Orbit Rise     | $95  | 2x everything, 4x groceries and dining, 5x travel |
+| Orbit Summit   | $395 | 2x everything, 10x hotels, 5x dining, metal card  |
+| Orbit Business | none | 2x everything, 5x software and ads                |
 
-## 2. HERO feature: Subscription Manager + Guard
+Eligibility is real: gated on the estimated score, blocked by recent missed
+payments, and a fee-bearing card that would not pay for itself says so rather
+than being recommended anyway. Cards render as physical objects (chip,
+contactless mark, material per tier) and can be locked, revealed, or ordered in
+plastic.
 
-**Detection (server-side, own module with unit tests):**
+### 4. Rewards — 100 points = $1
 
-- Auto-detect recurring charges from transaction history: same merchant,
-  similar amount (within a tolerance), regular interval (weekly, monthly,
-  yearly). Give each a confidence score.
-- Detect: price increases, free trials converting soon, duplicate or
-  overlapping services in the same category, and subscriptions that look
-  unused.
+One rule, stated everywhere. Cash and gift cards are exactly 1:1; travel is
+1.25x because partners fund it; retail partners are 0.8–0.9x **and the app says
+so on the option itself**. Every point earned or spent is a ledger row, so
+"where did these come from?" always has an answer. Boosters and "earn more" tips
+come from the customer's own spending.
 
-**Subscriptions page:**
+### 5. Pay and get paid
 
-- List of all subscriptions: logo/initial, amount, frequency, next charge
-  date, category, status (Active / Guarded / Blocked).
-- Totals: monthly and yearly cost.
-- Filters by category and status.
-- "Money saved" tracker: annual savings from blocked/canceled subscriptions.
+Send, request, pay a bill, or deposit a cheque by photo. Payments can be
+scheduled or set to repeat weekly, fortnightly or monthly; a scheduled payment
+moves no money until its date. Cheques are held two business days, as at a
+branch. A name **and** a reachable contact (10-digit mobile or email) are
+required before a Zelle-style request can be sent.
 
-**Actions per subscription:**
+### 6. Pay Over Time
 
-- **"Ask me first" (Subscription Guard):** future charges from this merchant
-  are declined, and the user gets an in-app alert: "Netflix tried to charge
-  $15.49 — Approve / Keep blocked." Approving allows the merchant's next
-  attempt only.
-- **"Block permanently":** card-level merchant block.
-- **"Replace with virtual card":** generate a per-merchant virtual card
-  number that can be locked or deleted (deleting it effectively cancels the
-  subscription).
-- **"Remind me before renewal"** (1, 3, or 7 days before).
-- Link to the merchant's cancellation page.
+Card purchases of $100+ split into 3, 6, 12 or 24 payments. 3 payments are 0%;
+longer terms are priced by credit band. Includes an affordability check against
+income and existing obligations, a cap on active plans, a credit-impact preview,
+and early payoff that waives interest on months never used.
 
-**Demo mode:**
+### 7. Budget — "will I be OK?"
 
-- A "Simulate renewal" button that sends a fake incoming charge through the
-  Guard logic, so the approve/decline alert can be shown live.
-- A notification center/inbox for all alerts.
+- Averages complete months only, so a half-finished month cannot flatter the
+  plan, and reports how volatile spending is.
+- Produces a **safe daily number**, monthly surplus, savings **runway**, and an
+  emergency target that scales with household size.
+- Methods: **50/30/20**, **70/10/10/10**, or **zero-based** envelopes
+  pre-filled from three months of real spending so setup takes a minute.
+- **Households** share one plan through a passkey — a couple, or a parent and a
+  working teenager. Only the hash is stored, so the code cannot be looked up.
 
----
+### 8. Investing
 
-## 3. Secondary feature: Pay Over Time
+Fractional stocks, funds and crypto from $1, with cost basis, profit and loss,
+and a risk note shown without being asked. **Points can fund an order at the
+same 1:1 rate as cash** — the gentlest possible first investment. In-kind
+transfer to an outside broker is explained honestly (nothing is sold, so no tax
+event). Prices are generated deterministically; the UI says so.
 
-- Eligible card purchases of $100+ can be split into 3, 6, 12, or 24 monthly
-  payments. Show a "Split this purchase" option on eligible transactions.
-- **Pricing (server-side, configurable in one file, with unit tests):**
-  - 3 payments: 0% (merchant-funded promo)
-  - 6 / 12 / 24 payments: tiered fixed monthly fee or APR
-  - Rate and eligibility depend on credit score band and on-time payment
-    history
-- **Plan picker UI:** buttons or slider for number of payments. Live display
-  of monthly payment, total cost, total interest/fees, and payoff date.
-  Compare plans side by side.
-- **Responsible lending:**
-  - Affordability check against income and existing obligations
-  - Cap on total active plans / total financed amount
-  - Clear warning if a plan would stretch the user's budget
-- **Credit impact preview:** change in monthly obligations and utilization.
-- **"My plans" page:** active plans, progress bars, next payment, pay off
-  early.
+### 9. Travel and offers
 
----
+Flights and hotels booked in-app: a price forecast that says book or wait, a
+rewards optimizer comparing card, miles and mixed payment, automatic price-drop
+refunds up to $50, and offers ranked by what they would have earned on last
+month's spending.
 
-## 4. Tying it together
+### 10. Split a bill
 
-- Dashboard hero number: **Safe to Spend** = available balance minus
-  upcoming subscription charges and installment payments before the next
-  payday.
-- Upcoming payments timeline combining subscriptions and installments.
-- When a user blocks a subscription or creates a plan, Safe to Spend updates
-  immediately.
+Photograph a receipt; OCR runs **on the device** (Tesseract), so the photo never
+leaves the phone — only the text is parsed. Items are editable, shared dishes
+divide between whoever shared them, and tax and tip follow each person's share.
+Rounding never loses or invents a cent. Requests go out Zelle-style, and a
+repayment lands in checking as a real deposit.
+
+### 11. Ori — the assistant
+
+No API key, no model: a rule-based engine (`backend/src/features/ori/`).
+
+- Tolerates typos, understands Spanish, handles 30+ intents, and extracts
+  amounts, merchants, accounts and pages.
+- **Proposes** anything that moves money or changes a card; nothing happens
+  without confirmation (and twice, if the customer asked for that).
+- **Never loops.** Two misunderstandings, a repeated question, or any sign of
+  frustration, and it offers a human — who receives the conversation.
+- Closing the panel keeps the conversation; "New chat" clears it deliberately.
+
+### 12. Real people, 24/7
+
+Live chat, a phone call with a **spoken verification code** (so the agent never
+re-verifies you), a scheduled callback, or a secure message. Accessibility needs
+(ASL, TTY, language, pace) are stated once and travel with the case.
+
+### 13. Accessibility and identity
+
+- Light / dark / system, text to 200%, high contrast, colour-blind-safe mode,
+  reading-friendly fonts, Simple mode, read-aloud, 44px targets, strong focus,
+  adjustable session timeouts, and a trusted contact. English and Spanish.
+- **Address change** verified by one-time code and mirrored to Nessie. **Legal
+  name change** with a document upload and a review — a bank cannot accept a new
+  legal name on trust, but it should not send you to a branch either.
+- Username or email sign-in; documents and a CSV export at tax time.
 
 ---
 
 ## Tech stack
 
-- Monorepo with `/frontend` and `/backend` folders.
-- **Frontend:** Next.js (App Router) + TypeScript + Tailwind CSS.
+- Monorepo with `/frontend` and `/backend`.
+- **Frontend:** Next.js (App Router) + TypeScript + Tailwind.
 - **Backend:** Node.js + Express + TypeScript.
-- **Database:** SQLite via Prisma (easy local setup).
+- **Database:** SQLite via Prisma.
 - The frontend only talks to our backend. It never calls Nessie directly.
+- `npm run dev` from the root runs both. `npm test` runs both suites.
 
 ### Environment variables
 
-- A `.env` file already exists in the project ROOT (not inside /backend). The
-  backend must load it from the root (e.g. dotenv with an explicit path).
+- `.env` lives in the project ROOT (not `/backend`); the backend loads it from
+  there explicitly.
 - Variables: `NESSIE_API_KEY`, `NESSIE_BASE_URL`, `USE_MOCK_DATA`.
-- Keep `.env.example` updated with placeholder values only.
-- Make sure `.env` and `*.db` stay in `.gitignore`.
-
-### Capital One Nessie API
-
-- Base URL: `https://api.nessieisreal.com` (read from `NESSIE_BASE_URL`).
-- Auth: API key passed as the `key` query parameter, read from
-  `NESSIE_API_KEY`. Never hardcode it, log it, or send it to the frontend.
-- Endpoints starting with `/enterprise` are read-only analyst endpoints. Use
-  the customer endpoints (no `/enterprise` prefix) for our demo customer.
-
-**Endpoints:** The API likely follows the classic Nessie structure below.
-Verify each one with a real test request before relying on it, and report to
-me what actually exists and its exact field names:
-
-```
-GET/POST  /customers
-GET/POST  /customers/{id}/accounts
-GET/PUT   /accounts/{id}
-GET/POST  /accounts/{id}/purchases      (card purchases, with merchant_id)
-GET/POST  /merchants
-GET/POST  /accounts/{id}/deposits
-GET/POST  /accounts/{id}/withdrawals
-GET/POST  /accounts/{id}/transfers
-GET/POST  /accounts/{id}/bills          (possibly has a recurring_date field)
-GET/POST  /accounts/{id}/loans          (possibly has a credit_score field)
-```
-
-There may be no single "transactions" endpoint. Build transaction history by
-merging purchases, deposits, withdrawals, and transfers.
-
-**How to use Nessie for our features:**
-
-- Transaction history = merged purchases + deposits + withdrawals +
-  transfers, joined with merchant data.
-- Subscriptions: detect them from recurring purchases. When a subscription is
-  confirmed, also create a matching Nessie bill (recurring, with amount and
-  next date) so the obligation lives in Nessie. Guard rules, virtual cards,
-  and alerts stay in our own database.
-- Pay Over Time: when the user confirms a plan, create a Nessie loan (amount,
-  monthly payment, description). If loans have a credit score field, use it
-  for pricing and eligibility. Our database stores the payment schedule and
-  progress.
-- Safe to Spend = account balance minus upcoming Nessie bills and loan
-  payments before the next payday.
-- If bills or loans don't exist or don't work as expected, fall back to
-  storing them only in our database, and tell me.
-
-**Our own database stores:** Subscription, SubscriptionGuardRule,
-VirtualCard, InstallmentPlan, Alert, Reminder — linked to Nessie IDs.
-
-**Fallback:** if Nessie is unreachable, the backend must switch to local
-mock data automatically so the demo never breaks. `USE_MOCK_DATA=true` forces
-mock mode.
+- Keep `.env.example` to placeholders only. `.env` and `*.db` stay gitignored.
+- **No AI API key is needed.** Ori and receipt OCR run without one by design.
 
 ### Seed script
 
-- Creates a demo customer in Nessie (and matching local mock data) with a
-  checking account, a savings account, a credit card, and ~6 months of
-  realistic transactions, including regular paychecks.
-- Include ~10 recurring merchants: one with a recent price increase, one free
-  trial converting in 2 days, two overlapping streaming services, one unused
-  subscription, plus normal ones (gym, cloud storage, music, etc.).
-- Include a few $100+ purchases eligible for Pay Over Time.
-- Must be safe to re-run (don't create duplicates endlessly).
+Creates the demo customer (Jordan Rivera) in Nessie and locally: checking,
+savings and an Orbit Move card, six months of transactions including paychecks,
+~10 recurring merchants (one price increase, one trial converting in two days,
+two overlapping streaming services, one unused), and several $100+ purchases
+eligible for Pay Over Time. Safe to re-run.
 
-### Code quality
-
-- Detection logic and pricing logic live in their own modules with unit
-  tests.
-- Clear API routes, input validation, consistent error handling.
-- Readable code with brief comments on non-obvious logic.
-- One command to run everything locally if possible (e.g. `npm run dev` from
-  root).
+Demo sign-in: username `jordan`, password `flow-demo-2026`.
 
 ---
 
 ## Design
 
-- Clean, minimal, trustworthy. Lots of white space, deep navy plus one accent
-  color, clear typography, accessible contrast, subtle animations.
-- Mobile-first and fully responsive (375px phones to large desktops). Bottom
-  tab bar on mobile, sidebar on desktop. Layouts must adapt to the user's
-  screen size.
-- Friendly empty states, loading skeletons, and error states.
-- Do not copy Capital One's logo or trademarks. Use a simple text wordmark
-  for "Flow."
+- **Orbit is not Capital One.** Its own name, mark, palette and type. Never
+  reintroduce Capital One branding, and never call the assistant Eno.
+- Confident and modern, aimed at 18–50: neither childish nor stuffy. Ink-black
+  primary actions, brand green reserved for money coming in, glass only on
+  chrome that floats over content.
+- Mobile-first and genuinely responsive: 4–6 bottom tabs depending on the
+  handset's width, a draggable More sheet, and a sidebar that collapses to an
+  icon rail without losing a single destination.
+- Friendly empty states, loading skeletons, and error states that say what went
+  wrong and what to do next — never "try again later".
 
 ---
 
-## Demo flow (optimize the app for this)
+## Demo flow (optimise the app for this)
 
-1. Log in → dashboard shows Safe to Spend and an alert: "Free trial converts
-   in 2 days."
-2. Tap alert → turn on Subscription Guard → Simulate renewal → charge is
-   declined → approve/decline alert appears.
-3. Subscriptions page: spot the duplicate streaming services, block one →
+1. **Sign in** → Home greets you by name with available balance, free-to-spend,
+   and an alert: a free trial converts in two days.
+2. **Ask Ori** "how much can I spend?", then "block Netflix" — it proposes,
+   you confirm, and the numbers move.
+3. **Subscriptions** → spot the two overlapping streaming services, block one →
    Money Saved updates.
-4. Open a $600 purchase → Split into 6 payments → compare plans → see
-   affordability + credit impact → confirm.
-5. Back to dashboard → Safe to Spend and timeline updated.
+4. **Cards** → see the line-up, and why Rise is or isn't worth its fee for you.
+5. **Rewards** → 100 points = $1, and the partner option that is honestly worse.
+6. **Budget** → "will I be OK?" answered in one sentence, then zero-based
+   envelopes filled from real history in one tap.
+7. **Invest** → put points into a fund, at the same rate as cash.
+8. **Tell Ori "this is useless"** → it stops guessing and hands you to a human
+   who already has the transcript.
+9. **Accessibility** → dark mode, 150% text, Simple mode, Español — the whole
+   app follows.
 
 ---
 
-## Build phases
+## Build phases (history)
 
-- **Phase 1:** Project setup, database schema, Nessie client + mock
-  fallback, verify Nessie endpoints and report findings, seed script.
-- **Phase 2:** Core banking shell (all screens, responsive layout).
-- **Phase 3:** Subscription detection, Subscriptions page, Guard, virtual
-  cards, alerts, demo mode.
-- **Phase 4:** Pay Over Time (pricing, plan picker, affordability, My Plans).
-- **Phase 5:** Safe to Spend, timeline, cross-feature updates.
-- **Phase 6:** Polish: animations, empty/loading/error states, mobile
-  testing, README (setup steps, env vars, architecture diagram, demo script).
+Phases 1–6 built the original Flow: setup and Nessie integration, the banking
+shell, subscriptions and Guard, Pay Over Time, Safe to Spend, then polish.
+Phases 7–12 became Orbit: rebrand and design system, Ori, live support and
+accessibility, identity and payments, cards/rewards/investing/budgeting, and
+travel/split/spending. See PROGRESS for detail.
 
 ---
 
@@ -272,18 +252,87 @@ _Update this after every phase: what's done, what's left, known issues._
       updates (blocking a subscription moves Safe to Spend immediately).
 - [x] **Phase 6** — polish: animations, loading skeletons, empty and error
       states, mobile verified at 375px, README with architecture and demo script.
+- [x] **Phase 7 — Orbit rebrand and design system.** No longer skinned as
+      Capital One: this is **Orbit**, with its own name, mark, palette and type.
+      Every colour is a CSS variable, so light, dark and high contrast swap
+      tokens rather than markup. The assistant is **Ori** (Eno is Capital One's
+      trademark), using the supplied star mark with one rotation on open.
+- [x] **Phase 8 — Ori.** A rule-based assistant: no API key, no model. Handles
+      typos, Spanish, 30+ intents, extracts amounts and merchants, proposes money
+      actions but never performs them unasked, and hands off to a human after two
+      misses or any sign of frustration.
+- [x] **Phase 9 — live support, accessibility, alerts.** 24/7 chat, a call with
+      a spoken verification code, scheduled callbacks, secure messages. Full
+      accessibility panel (WCAG 2.2 AA target) and English/Spanish throughout.
+      Charge alerts write to the inbox first, then attempt Web Push, recording
+      whether delivery succeeded.
+- [x] **Phase 10 — identity and money movement.** Verified address change
+      (one-time code, mirrored to Nessie), legal name change with a document and
+      review, username sign-in, trusted contact. Pay: send, request, bills,
+      scheduling, recurring payments, and cheque deposit by photo.
+- [x] **Phase 11 — cards, rewards, investing, budgeting.** Five card products
+      with real eligibility rules; a points ledger where 100 points = $1, with
+      honest redemption multipliers; fractional investing in stocks, funds and
+      crypto (points can fund an order); budgeting with 50/30/20, 70/10/10/10 and
+      pre-filled zero-based envelopes; household sharing by passkey; and a
+      forecast that answers "will I be OK?".
+- [x] **Phase 12 — travel, split, spending.** In-app flights and hotels with a
+      price forecast, rewards optimizer and automatic price-drop refunds; receipt
+      splitting with on-device OCR and Zelle-style requests; spending insights
+      with a validated colour-blind-safe category chart.
 
 ### Where things live
 
 ```
-backend/src/features/   pure business logic, fully unit tested
-backend/src/services/   that logic joined to the database
-backend/src/data/       providers, demo dataset, sync
-backend/src/routes/     Express endpoints
-frontend/src/app/(app)/ the signed-in screens
+backend/src/features/        pure logic, unit tested, no database
+  detection · guard · pricing · safeToSpend · creditScore
+  cards · rewards · budget · investing · spending · receipt
+  travel · profileChange · support
+  ori/  nlu.ts (intents, typos, Spanish) · respond.ts · pages.ts
+backend/src/services/        that logic joined to the database
+  subscriptions · plans · dashboard · credit · money · insights
+  cards · rewards · investing · budget · payments · travel
+  split · profile · support · notify (alerts + Web Push) · auth
+backend/src/data/            provider, demo dataset, Nessie sync
+backend/src/routes/          index · auth · banking · subscriptions · plans
+                             credit · assist (Ori, support, alerts)
+                             lifestyle (spending, travel, split)
+                             money (cards, rewards, invest, budget, pay)
+                             profile (identity, accessibility)
+frontend/src/app/(app)/      the signed-in screens
+frontend/src/lib/            api client · accessibility · i18n · uiState
+frontend/src/components/     ui kit · brand · PaymentCard · CategoryDonut
+                             Nav · QuickDisplay · Tour · IdleGuard
+                             PushSetup · ori/ · settings/
 ```
 
-139 tests: `npm test`. See README.md for architecture and the demo script.
+358 tests (338 backend, 20 frontend): `npm test`.
+
+Key data models beyond the original set: `CardProduct`, `PointsEntry`,
+`Holding`, `Trade`, `Budget`/`BudgetEnvelope`, `Household`/`HouseholdMember`,
+`Payee`/`ScheduledPayment`, `CheckDeposit`, `TravelBooking`, `BillSplit`,
+`ProfileChangeRequest`, `SupportCase`, `PushSubscription`.
+
+### The design system
+
+`frontend/tailwind.config.ts` maps every colour to a CSS variable defined in
+`globals.css`. Light and dark are two sets of the same variable names, so a
+component never needs a dark-mode variant, and high contrast sharpens whichever
+theme is active. Type is Plus Jakarta Sans for display, Inter for text, JetBrains
+Mono for card numbers. Never hardcode a colour — `bg-white` does not follow the
+theme; `bg-surface` does.
+
+### Brand
+
+**Orbit** — money that moves with you. The assistant is **Ori**. The supplied
+`AI Agent.png` is Ori's avatar (`frontend/public/ori.png`); the Orbit mark is
+drawn in `components/brand.tsx` so it inherits theme colours.
+
+### Points
+
+100 points = $1, everywhere, with no exceptions worth hiding. Cash and gift cards
+are exactly 1:1; travel is 1.25x because partners fund it; retail partners are
+0.8–0.9x and the app says so on the card itself rather than burying it.
 
 ### Post-review fixes
 
@@ -302,8 +351,8 @@ frontend/src/app/(app)/ the signed-in screens
   without opening the detail page first.
 - Custom reminder intervals (1–90 days) and delivery channels.
 - "What this costs you": already paid, next 12 months, 5 years.
-- Retinted to Capital One's navy/red palette; green is reserved for money saved
-  and income.
+- Retinted to the Capital One navy/red palette (later replaced entirely by the
+  Orbit palette in phase 7).
 
 ### Second round of fixes
 
@@ -337,17 +386,39 @@ frontend/src/app/(app)/ the signed-in screens
 - Virtual card deletion no longer cancels the subscription implicitly — it asks
   whether to cancel or move billing to the real card.
 
-### Known issues / notes
+### What is simulated, and why
 
-- Nessie holds more transactions than the 300 in the mirror: early seed runs
-  duplicated records before the idempotency signature was fixed, and Nessie has
-  no DELETE for purchases. Harmless — the app reads the local mirror. For a clean
-  Nessie account, change the demo customer name in `backend/src/data/nessieProvider.ts`
-  and re-seed.
-- "Looks unused" comes from a seeded engagement signal; Nessie exposes no usage
-  data, so this stands in for merchant telemetry a real bank would receive.
-- Free-trial conversion prices come from a seeded merchant field, since a $0
-  trial authorisation cannot reveal what it will charge.
+Everything that touches the customer's own money is real logic over real stored
+data. These are the edges where no real service exists behind the demo — each is
+stated in the UI rather than hidden:
+
+- **Market prices** are generated deterministically per symbol and date, so a
+  chart looks like a market and the same day always shows the same price.
+- **Flights and hotels** are generated from the route and date; there is no
+  travel inventory. Pricing, earning, credits and refunds are real arithmetic.
+- **Live agents** are scripted per topic. Routing, wait estimates, verification
+  codes, accessibility needs and transcript carry-over are the real design.
+- **One-time codes** are returned by the API (and labelled as a demo) because
+  there is no SMS gateway. A real deployment sends and never returns them.
+- **Documents** (cheque photos, name-change files) are not retained — only the
+  file name, type and size.
+- **"Looks unused"** and **free-trial conversion prices** come from seeded
+  merchant fields; Nessie exposes neither.
+
+### Known issues
+
+- Nessie holds more transactions than the mirror: early seed runs duplicated
+  records before the idempotency signature was fixed, and Nessie has no DELETE
+  for purchases. Harmless — the app reads the local mirror. For a clean Nessie
+  account, change the demo customer name in
+  `backend/src/data/nessieProvider.ts` and re-seed.
+- The 21st.dev logo MCP returns no results for any query (the upstream svgl
+  library appears to be down), so merchant marks are generated locally.
+- Accounts, Subscriptions, Plans and Support follow the new theme correctly but
+  have not had the full layout redesign that Home, Cards, Pay, Invest, Rewards
+  and Budget received.
+- There is no business-specific dashboard yet; the Business _card_ exists and
+  Cards filters by personal/business.
 
 ---
 
@@ -426,6 +497,16 @@ survive the round trip.
 `credit_score`, `monthly_payment` and `amount`; `PUT /loans/{id}` marks it
 `completed` on payoff. Term and schedule stay local.
 
+**Travel bookings are real Nessie purchases.** `POST /accounts/{id}/purchases`
+against the card, with the airline or hotel created as a Nessie merchant if it
+does not exist yet. A booking paid with miles posts a **second purchase with
+`medium: 'rewards'`** — the one place Nessie models rewards spending directly,
+and a good fit for how points actually work here.
+
+**A verified address change is mirrored to the customer.** `PUT /customers/{id}`
+accepts `address` (and names), so a confirmed move — and an approved legal name
+change — updates the Nessie record, not just ours.
+
 **Amounts:** the mirror is authoritative because Nessie truncates to whole
 dollars everywhere except bills. This is documented API behaviour, not a bug.
 Conversion happens only in the Nessie client layer.
@@ -441,22 +522,23 @@ using data the app actually holds: payment history from instalment records,
 utilisation from card balance and limit, history length, account mix and recently
 opened lines. Pure functions, 26 unit tests.
 
-It is an **estimate, not a FICO score** — real scores include accounts at other
-lenders, credit checks and public records we cannot see. The UI says so plainly.
+It is an **estimate, not a FICO® score** — real scores include accounts at other
+lenders, credit checks and public records we cannot see. The UI says exactly
+that ("a FICO-model estimate"), and offers to show a connected bureau score
+beside it rather than replacing it. Never label this as a FICO score: that name
+is licensed through the bureaus, and claiming it would be both wrong and a
+trademark problem.
 
 The estimate drives Pay Over Time pricing through `bandForScore()`, so paying
 down the card or stopping subscriptions actually changes the APR offered. The
 `/credit` page lets the user stack what-if scenarios and watch the score move.
 
-### Known issues / notes
+### Nessie housekeeping
 
-- Nessie holds more transactions than the mirror: early seed runs duplicated
-  records before the idempotency signature was fixed, and Nessie has no DELETE
-  for purchases. Harmless — the app reads the mirror. `ZZ_AUDIT` and
-  `ZZ_FLOW_PROBE` records are left over from endpoint verification.
-- Bills accumulated across seeds before re-adoption was added; `mirrorBillToNessie`
-  now adopts an existing bill by payee rather than creating a duplicate.
-- "Looks unused" comes from a seeded engagement signal; Nessie exposes no usage
-  data, so it stands in for merchant telemetry a real bank would receive.
-- Free-trial conversion prices come from a seeded merchant field, since a $0
-  trial authorisation cannot reveal what it will charge.
+- `ZZ_AUDIT` and `ZZ_FLOW_PROBE` records upstream are left over from endpoint
+  verification, and are ignored by the app.
+- Bills accumulated across seeds before re-adoption was added;
+  `mirrorBillToNessie` now adopts an existing bill by payee rather than creating
+  a duplicate.
+
+(General known issues are listed under PROGRESS, above.)

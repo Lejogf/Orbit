@@ -3,7 +3,7 @@
 // IMPORTANT: this is a directional ESTIMATE, not a FICO score. A real score
 // needs bureau data — accounts at other lenders, hard inquiries, collections,
 // public records — none of which this app can see. What it models is the
-// behaviour Flow *can* observe, using the published FICO factor weights, so the
+// behaviour Orbit *can* observe, using the published FICO factor weights, so the
 // direction and rough magnitude of a change are meaningful even though the
 // absolute number is not authoritative.
 //

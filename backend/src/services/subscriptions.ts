@@ -1,6 +1,8 @@
 // Subscription service: runs detection against the mirror, persists results, and
 // carries out the Guard, virtual-card and alert actions.
 
+import { notifyCharge } from './notify.js';
+import { earnOnPurchase } from './rewards.js';
 import type { PrismaClient } from '@prisma/client';
 import { nessie } from '../nessie/client.js';
 import { centsToDollars, addDays, daysBetween, startOfDay, toIsoDate } from '../lib/utils.js';
@@ -557,6 +559,25 @@ export async function simulateRenewal(prisma: PrismaClient, id: string, now = ne
       where: { id },
       data: { lastChargeDate: now, nextChargeDate: addDays(now, subscription.intervalDays) },
     });
+
+    if (account) {
+      await earnOnPurchase(prisma, {
+        customerId: account.customerId,
+        accountId: account.id,
+        amountCents,
+        category: subscription.category,
+        merchant: subscription.merchantName,
+      });
+      await notifyCharge(prisma, {
+        customerId: account.customerId,
+        merchant: subscription.merchantName,
+        amountCents,
+        accountLabel: subscription.virtualCard?.status === 'active'
+          ? `virtual card ••${subscription.virtualCard.last4}`
+          : `${account.nickname} ••${account.last4}`,
+        href: `/subscriptions/${id}?from=alerts`,
+      });
+    }
   } else {
     await prisma.subscriptionGuardRule.updateMany({
       where: { subscriptionId: id },

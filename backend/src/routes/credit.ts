@@ -21,7 +21,7 @@ creditRouter.get(
       weights: FACTOR_WEIGHTS,
       // Stated in the payload as well as the UI: this is not a bureau score.
       disclaimer:
-        'An estimate based on the accounts Flow can see, using the published FICO factor weights. Your real score also reflects accounts at other lenders, credit checks and public records, which we cannot see.',
+        'An estimate based on the accounts Orbit can see, using the published FICO factor weights. Your real score also reflects accounts at other lenders, credit checks and public records, which we cannot see.',
     });
   }),
 );

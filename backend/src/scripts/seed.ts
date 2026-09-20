@@ -245,7 +245,7 @@ async function seedNessie(dataset: DemoDataset): Promise<NessieIdMap> {
 }
 
 /**
- * Clears everything Flow owns, so a demo can be run from a known state. Mirrors
+ * Clears everything Orbit owns, so a demo can be run from a known state. Mirrors
  * of Nessie data are left alone — the sync rebuilds those anyway.
  */
 async function resetLocalState(): Promise<void> {

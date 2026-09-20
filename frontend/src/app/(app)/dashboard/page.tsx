@@ -1,396 +1,305 @@
 'use client';
 
+// Home.
+//
+// The order is deliberate: who you are, what you can actually spend, what you
+// can do about it, then what is coming. Anything that needs a decision is
+// pulled to the top.
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { api, type Dashboard } from '@/lib/api';
-import { formatCents, formatCentsShort, formatDate, relativeDays, initial, merchantColor } from '@/lib/format';
-import { Chip, ErrorState, Skeleton } from '@/components/ui';
+import { api, money, type Dashboard, type HeldCard, type RewardsResponse } from '@/lib/api';
+import { formatCents, formatDate, relativeDays } from '@/lib/format';
+import { Chip, ErrorState, Money, Progress, SectionCard, Skeleton, StatCard } from '@/components/ui';
+import { PaymentCard } from '@/components/PaymentCard';
+import { MerchantMark } from '@/components/ui';
+import { useSession } from '@/components/AuthGuard';
+import { useT, greetingKey } from '@/lib/i18n';
+import { askOri } from '@/components/ori/OriAssistant';
 
 export default function DashboardPage() {
+  const t = useT();
+  const { session } = useSession();
   const [data, setData] = useState<Dashboard | null>(null);
+  const [cards, setCards] = useState<HeldCard[]>([]);
+  const [rewards, setRewards] = useState<RewardsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setError(null);
-    api
-      .dashboard()
-      .then(setData)
-      .catch((cause: Error) => setError(cause.message));
+    api.dashboard().then(setData).catch((e: Error) => setError(e.message));
+    money.cards().then((r) => setCards(r.cards)).catch(() => undefined);
+    money.rewards().then(setRewards).catch(() => undefined);
   }, []);
 
   useEffect(load, [load]);
+  // Anything Ori or another screen changes should show here immediately.
+  useEffect(() => {
+    const onChange = () => load();
+    window.addEventListener('orbit:data-changed', onChange);
+    return () => window.removeEventListener('orbit:data-changed', onChange);
+  }, [load]);
 
   if (error) return <ErrorState message={error} onRetry={load} />;
-  if (!data) return <DashboardSkeleton />;
 
-  const { safeToSpend, accounts, subscriptions, alerts, activePlans, timeline } = data;
-  const pending = alerts.filter((a) => a.needsDecision);
-  const informational = alerts.filter((a) => !a.needsDecision);
+  const needsYou = data?.alerts.filter((a) => a.needsDecision) ?? [];
+  const checking = data?.accounts.find((a) => a.type === 'Checking');
 
   return (
     <div className="space-y-6">
-      {/* Hero: Safe to Spend */}
-      <section className="card animate-rise overflow-hidden bg-navy-900 p-6 text-white sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-navy-200">
-              Safe to spend
-            </p>
-            <p className="mt-2 text-5xl font-semibold tracking-tight tnum sm:text-6xl">
-              {formatCentsShort(safeToSpend.safeToSpendCents)}
-            </p>
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-navy-200">
-              {formatCents(safeToSpend.checkingBalanceCents)} in checking, minus{' '}
-              {formatCents(safeToSpend.committedCents)} already committed
-              {safeToSpend.nextPayday
-                ? ` before payday on ${formatDate(safeToSpend.nextPayday)}.`
-                : ' over the next two weeks.'}
-            </p>
+      {/* Greeting */}
+      <header>
+        <p className="label">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+        <h1 className="mt-1 font-display text-[1.75rem] font-bold tracking-[-0.025em] text-ink-900 sm:text-[2.125rem]">
+          {t(greetingKey())}, {session.customer.firstName}
+        </h1>
+      </header>
+
+      {!data ? (
+        <DashboardSkeleton />
+      ) : (
+        <>
+          {/* The money */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StatCard
+              tone="ink"
+              className="sm:col-span-2"
+              label={t('home.available')}
+              value={formatCents(checking?.balanceCents ?? 0)}
+              hint={
+                <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span>
+                    {t('home.free')}: <strong className="font-semibold">{formatCents(data.safeToSpend.safeToSpendCents)}</strong>
+                  </span>
+                  <span className="opacity-75">
+                    {t('home.committed')}: {formatCents(data.safeToSpend.committedCents)}
+                    {data.safeToSpend.daysUntilPayday !== null && ` · payday in ${data.safeToSpend.daysUntilPayday}d`}
+                  </span>
+                </span>
+              }
+            />
+            <StatCard
+              label={t('home.points')}
+              value={(rewards?.points ?? 0).toLocaleString('en-US')}
+              hint={
+                <>
+                  Worth {formatCents(rewards?.valueCents ?? 0)} ·{' '}
+                  <Link href="/rewards" className="font-semibold text-accent-600 underline-offset-2 hover:underline">
+                    Redeem
+                  </Link>
+                </>
+              }
+            />
           </div>
 
-          {safeToSpend.daysUntilPayday !== null && (
-            <div className="rounded-2xl bg-white/10 px-5 py-4 text-center backdrop-blur">
-              <p className="text-3xl font-semibold tnum">{safeToSpend.daysUntilPayday}</p>
-              <p className="mt-0.5 text-xs text-navy-200">days to payday</p>
-            </div>
-          )}
-        </div>
-
-        {safeToSpend.avoidedCents > 0 && (
-          <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-navy-500/15 px-3 py-1.5 text-xs font-medium text-navy-200">
-            <span aria-hidden="true">✓</span>
-            {formatCents(safeToSpend.avoidedCents)} freed up by subscriptions you stopped
-          </p>
-        )}
-      </section>
-
-      {/* Charges awaiting a decision come first — they're time-sensitive. */}
-      {pending.length > 0 && (
-        <section className="space-y-3">
-          {pending.map((alert) => (
-            <PendingChargeCard key={alert.id} alert={alert} onDone={load} />
-          ))}
-        </section>
-      )}
-
-      {informational.length > 0 && (
-        <section className="card animate-rise p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-navy-900">Needs your attention</h2>
-            <Link href="/alerts" className="text-xs font-medium text-navy-600 hover:text-navy-700">
-              View all
-            </Link>
-          </div>
-          <ul className="divide-y divide-slate-100">
-            {informational.slice(0, 3).map((alert) => (
-              <li key={alert.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-                <span
-                  className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
-                    alert.kind === 'trial_converting' ? 'bg-amber-500' : 'bg-sky-500'
-                  }`}
-                  aria-hidden="true"
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-navy-900">{alert.title}</p>
-                  <p className="mt-0.5 text-sm leading-relaxed text-navy-600">{alert.body}</p>
-                  {alert.subscriptionId && (
-                    <Link
-                      href={`/subscriptions/${alert.subscriptionId}?from=dashboard`}
-                      className="mt-1.5 inline-block text-xs font-semibold text-navy-600 hover:text-navy-700"
-                    >
-                      Manage →
-                    </Link>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Committed money at a glance */}
-      <section className="grid gap-4 sm:grid-cols-2">
-        <Link href="/subscriptions" className="card animate-rise group p-5 transition hover:border-navy-300">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="label">Subscriptions</p>
-              <p className="mt-2 text-3xl font-semibold tracking-tight text-navy-900 tnum">
-                {formatCents(subscriptions.monthlyTotalCents)}
-                <span className="ml-1 text-base font-normal text-navy-400">/mo</span>
-              </p>
-              <p className="mt-1 text-sm text-navy-600">
-                {subscriptions.activeCount} active · {formatCents(subscriptions.yearlyTotalCents)} a year
-              </p>
-            </div>
-            <span className="text-navy-300 transition group-hover:translate-x-0.5 group-hover:text-navy-600" aria-hidden="true">→</span>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {subscriptions.needsAttention.trials > 0 && (
-              <Chip tone="warn">{subscriptions.needsAttention.trials} trial ending</Chip>
-            )}
-            {subscriptions.needsAttention.priceIncreases > 0 && (
-              <Chip tone="danger">{subscriptions.needsAttention.priceIncreases} price rise</Chip>
-            )}
-            {subscriptions.needsAttention.duplicates > 0 && (
-              <Chip tone="info">{subscriptions.needsAttention.duplicates} overlapping</Chip>
-            )}
-            {subscriptions.needsAttention.unused > 0 && (
-              <Chip tone="neutral">{subscriptions.needsAttention.unused} unused</Chip>
-            )}
-          </div>
-
-          {subscriptions.savedYearlyCents > 0 && (
-            <p className="mt-4 rounded-lg bg-navy-50 px-3 py-2 text-xs font-semibold text-navy-700">
-              Saving {formatCents(subscriptions.savedYearlyCents)} a year
-            </p>
-          )}
-        </Link>
-
-        <Link href="/plans" className="card animate-rise group p-5 transition hover:border-navy-300">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="label">Pay Over Time</p>
-              <p className="mt-2 text-3xl font-semibold tracking-tight text-navy-900 tnum">
-                {formatCents(activePlans.monthlyTotalCents)}
-                <span className="ml-1 text-base font-normal text-navy-400">/mo</span>
-              </p>
-              <p className="mt-1 text-sm text-navy-600">
-                {activePlans.count === 0
-                  ? 'No active plans'
-                  : `${activePlans.count} active · ${formatCents(activePlans.remainingCents)} remaining`}
-              </p>
-            </div>
-            <span className="text-navy-300 transition group-hover:translate-x-0.5 group-hover:text-navy-600" aria-hidden="true">→</span>
-          </div>
-
-          {activePlans.count === 0 && (
-            <p className="mt-4 text-xs leading-relaxed text-navy-600">
-              Split a purchase of $100 or more into 3, 6, 12 or 24 payments. Open any eligible
-              purchase to see the options.
-            </p>
-          )}
-        </Link>
-      </section>
-
-      {/* Credit */}
-      <CreditTile />
-
-      {/* Accounts */}
-      <section className="card animate-rise p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-navy-900">Accounts</h2>
-          <Link href="/accounts" className="text-xs font-medium text-navy-600 hover:text-navy-700">
-            View all
-          </Link>
-        </div>
-        <ul className="divide-y divide-slate-100">
-          {accounts.map((account) => (
-            <li key={account.id}>
+          {/* Quick actions */}
+          <nav aria-label="Quick actions" className="grid grid-cols-4 gap-2 sm:gap-3">
+            {[
+              { href: '/pay?action=send', label: t('home.send'), icon: 'M5 12h14M13 6l6 6-6 6' },
+              { href: '/pay?action=request', label: t('home.request'), icon: 'M19 12H5M11 18l-6-6 6-6' },
+              { href: '/pay?action=deposit', label: t('home.deposit'), icon: 'M12 4v12M7 11l5 5 5-5M5 20h14' },
+              { href: '/transfer', label: t('home.move'), icon: 'M7 7h13l-3-3M17 17H4l3 3' },
+            ].map((action) => (
               <Link
-                href={`/accounts/${account.id}?from=dashboard`}
-                className="-mx-2 flex items-center justify-between rounded-lg px-2 py-3 transition hover:bg-slate-50"
+                key={action.href}
+                href={action.href}
+                className="group flex flex-col items-center gap-2 rounded-2xl border border-line bg-surface p-3 text-center shadow-card transition-all duration-200 ease-spring hover:-translate-y-0.5 hover:shadow-raised"
               >
-                <div>
-                  <p className="text-sm font-medium text-navy-900">
-                    {account.nickname}
-                    {account.isLocked && (
-                      <span className="ml-2 align-middle">
-                        <Chip tone="danger">Locked</Chip>
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-navy-600">
-                    {account.type} ···· {account.last4}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-navy-900 tnum">
-                    {formatCents(account.balanceCents)}
-                  </p>
-                  {account.availableCreditCents !== null && (
-                    <p className="text-xs text-navy-600 tnum">
-                      {formatCents(account.availableCreditCents)} available
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-accent-100 text-accent-700 transition-colors group-hover:bg-accent-500 group-hover:text-white">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d={action.icon} />
+                  </svg>
+                </span>
+                <span className="text-xs font-semibold leading-tight text-ink-800">{action.label}</span>
+              </Link>
+            ))}
+          </nav>
+
+          {/* Anything that needs a decision */}
+          {needsYou.length > 0 && (
+            <SectionCard
+              title={t('home.needsYou')}
+              action={
+                <Link href="/alerts" className="text-sm font-semibold text-accent-600 hover:underline">
+                  {t('home.seeAll')}
+                </Link>
+              }
+              className="border-warn-300"
+            >
+              <ul className="space-y-3">
+                {needsYou.slice(0, 3).map((alert) => (
+                  <li key={alert.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-warn-50 p-3.5">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink-900">{alert.title}</p>
+                      <p className="text-xs text-ink-600">{alert.body}</p>
+                    </div>
+                    <Link href={`/alerts`} className="btn-primary !py-2 text-xs">
+                      Decide
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </SectionCard>
+          )}
+
+          {/* Cards */}
+          <section aria-labelledby="cards-heading">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 id="cards-heading" className="text-base font-semibold text-ink-900">{t('home.yourCards')}</h2>
+              <Link href="/cards" className="text-sm font-semibold text-accent-600 hover:underline">{t('home.seeAll')}</Link>
+            </div>
+            {cards.length === 0 ? (
+              <Skeleton className="h-44 w-72" />
+            ) : (
+              <div className="rail -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+                {cards.map((card) => (
+                  <Link key={card.accountId} href={`/cards?card=${card.accountId}`} className="shrink-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2">
+                    <PaymentCard
+                      name={card.name}
+                      last4={card.last4}
+                      holder={`${session.customer.firstName} ${session.customer.lastName}`}
+                      art={card.art}
+                      locked={card.isLocked}
+                      business={card.kind === 'business'}
+                    />
+                    <p className="mt-2 flex items-center justify-between gap-2 text-xs text-ink-600">
+                      <span>{card.availableCents !== null ? `${formatCents(card.availableCents)} available` : card.nickname}</span>
+                      <span className="font-semibold text-ink-800">{formatCents(card.balanceCents)} owed</span>
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* What's coming */}
+            <SectionCard
+              title={t('home.coming')}
+              action={<Link href="/budget" className="text-sm font-semibold text-accent-600 hover:underline">Plan</Link>}
+            >
+              {data.timeline.length === 0 ? (
+                <p className="text-sm text-ink-600">Nothing scheduled in the next few weeks.</p>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {data.timeline.slice(0, 6).map((item) => (
+                    <li key={item.id} className="flex items-center gap-3 py-2.5">
+                      <MerchantMark name={item.label} size={36} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink-900">{item.label}</p>
+                        <p className="text-xs text-ink-500">
+                          {formatDate(item.date)} · {relativeDays(item.date)}
+                          {item.isFreeTrialConversion && ' · trial ends'}
+                        </p>
+                      </div>
+                      <Money cents={item.amountCents} signed className="text-sm font-semibold" />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SectionCard>
+
+            {/* Committed vs free, plus investments */}
+            <div className="space-y-4">
+              <SectionCard title="This month">
+                <div className="space-y-4">
+                  <div>
+                    <div className="mb-1.5 flex items-baseline justify-between text-sm">
+                      <span className="text-ink-700">Committed before payday</span>
+                      <span className="font-semibold text-ink-900 tnum">{formatCents(data.safeToSpend.committedCents)}</span>
+                    </div>
+                    <Progress
+                      value={
+                        data.safeToSpend.checkingBalanceCents > 0
+                          ? data.safeToSpend.committedCents / data.safeToSpend.checkingBalanceCents
+                          : 0
+                      }
+                      tone="ink"
+                    />
+                  </div>
+                  <dl className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-xl bg-surface-sunken p-3">
+                      <dt className="text-xs text-ink-500">Subscriptions</dt>
+                      <dd className="mt-0.5 font-semibold text-ink-900 tnum">{formatCents(data.subscriptions.monthlyTotalCents)}/mo</dd>
+                    </div>
+                    <div className="rounded-xl bg-surface-sunken p-3">
+                      <dt className="text-xs text-ink-500">Saved by blocking</dt>
+                      <dd className="mt-0.5 font-semibold text-accent-600 tnum">{formatCents(data.subscriptions.savedYearlyCents)}/yr</dd>
+                    </div>
+                  </dl>
+                  {data.activePlans.count > 0 && (
+                    <p className="text-sm text-ink-700">
+                      {data.activePlans.count} payment plan{data.activePlans.count === 1 ? '' : 's'} ·{' '}
+                      <strong className="font-semibold">{formatCents(data.activePlans.monthlyTotalCents)}</strong> a month
                     </p>
                   )}
                 </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+              </SectionCard>
 
-      {/* Upcoming payments */}
-      <section className="card animate-rise p-5">
-        <h2 className="mb-1 text-sm font-semibold text-navy-900">What&rsquo;s coming up</h2>
-        <p className="mb-4 text-xs text-navy-600">Subscriptions and plan payments over the next 45 days.</p>
-
-        {timeline.length === 0 ? (
-          <p className="py-6 text-center text-sm text-navy-600">Nothing scheduled.</p>
-        ) : (
-          <ul className="space-y-1">
-            {timeline.slice(0, 10).map((item) => (
-              <li key={item.id} className="flex items-center gap-3 rounded-lg px-1 py-2">
-                <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                    item.kind === 'income' ? 'bg-navy-50 text-navy-700' : merchantColor(item.label)
-                  }`}
-                  aria-hidden="true"
-                >
-                  {item.kind === 'income' ? '↓' : initial(item.label)}
-                </span>
-
-                <div className="min-w-0 flex-1">
-                  {/* The chip sits outside the truncating element, or it gets clipped. */}
-                  <div className="flex min-w-0 items-center gap-2">
-                    <p className="truncate text-sm font-medium text-navy-900">{item.label}</p>
-                    {item.isFreeTrialConversion && (
-                      <span className="shrink-0">
-                        <Chip tone="warn">Trial</Chip>
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-navy-600">
-                    {formatDate(item.date)} · {relativeDays(item.date)}
-                  </p>
-                </div>
-
-                <p
-                  className={`text-sm font-semibold tnum ${
-                    item.amountCents > 0 ? 'text-navy-700' : 'text-navy-900'
-                  }`}
-                >
-                  {formatCents(item.amountCents, { showSign: item.amountCents > 0 })}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  );
-}
-
-/** The approve / keep-blocked card raised when Guard declines a charge. */
-function PendingChargeCard({
-  alert,
-  onDone,
-}: {
-  alert: Dashboard['alerts'][number];
-  onDone: () => void;
-}) {
-  const [busy, setBusy] = useState<'approve' | 'keep_blocked' | null>(null);
-
-  const decide = async (decision: 'approve' | 'keep_blocked') => {
-    setBusy(decision);
-    try {
-      await api.alertDecision(alert.id, decision);
-      onDone();
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <div className="card animate-rise border-amber-200 bg-amber-50/60 p-5">
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
-            <path d="M12 9v4M12 16.5v.5" strokeLinecap="round" />
-            <path d="M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-          </svg>
-        </span>
-
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-navy-900">
-            {alert.title}
-            {alert.occurrences > 1 && (
-              <span className="ml-2 rounded-full bg-amber-200 px-1.5 py-0.5 text-[11px] font-bold text-amber-900 tnum">
-                ×{alert.occurrences}
-              </span>
-            )}
-          </p>
-          <p className="mt-0.5 text-sm leading-relaxed text-navy-600">{alert.body}</p>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button onClick={() => decide('approve')} disabled={busy !== null} className="btn-accent">
-              {busy === 'approve' ? 'Approving…' : 'Approve this charge'}
-            </button>
-            <button onClick={() => decide('keep_blocked')} disabled={busy !== null} className="btn-ghost">
-              {busy === 'keep_blocked' ? 'Saving…' : 'Keep blocked'}
-            </button>
+              <SectionCard
+                title={t('home.portfolio')}
+                action={<Link href="/invest" className="text-sm font-semibold text-accent-600 hover:underline">Open</Link>}
+              >
+                <InvestTeaser />
+              </SectionCard>
+            </div>
           </div>
 
-          <p className="mt-2.5 text-xs text-navy-600">
-            Approving lets this one charge through. The next attempt asks you again.
-          </p>
-        </div>
-      </div>
+          <button onClick={() => askOri('What should I do with my money this week?')} className="btn-ghost w-full sm:w-auto">
+            Ask Ori what to do this week
+          </button>
+        </>
+      )}
     </div>
   );
 }
 
-/** Small credit summary, loaded separately so it never delays the dashboard. */
-function CreditTile() {
-  const [credit, setCredit] = useState<{ score: number; band: string; best: string | null } | null>(
-    null,
-  );
+function InvestTeaser() {
+  const [value, setValue] = useState<{ valueCents: number; gainCents: number; dayChangeCents: number } | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    api
-      .credit()
-      .then((report) => {
-        if (cancelled) return;
-        const best = [...report.scenarios].sort((a, b) => b.delta - a.delta)[0];
-        setCredit({
-          score: report.score,
-          band: report.band,
-          best: best && best.delta > 0 ? `${best.label} for +${best.delta}` : null,
-        });
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
+    money.invest().then((r) => setValue(r.portfolio)).catch(() => undefined);
   }, []);
 
-  if (!credit) return <Skeleton className="h-28 rounded-2xl" />;
-
+  if (!value) return <Skeleton className="h-16" />;
+  if (value.valueCents === 0) {
+    return (
+      <p className="text-sm text-ink-700">
+        You haven’t started investing yet. You can begin with <strong className="font-semibold">$1</strong>, or put your points to work.
+      </p>
+    );
+  }
   return (
-    <Link href="/credit" className="card animate-rise group flex items-center gap-5 p-5 transition hover:border-navy-300">
-      <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-4 border-navy-100 bg-white">
-        <span className="text-xl font-semibold text-navy-900 tnum">{credit.score}</span>
+    <div className="flex items-end justify-between gap-3">
+      <div>
+        <p className="font-display text-2xl font-bold text-ink-900 tnum">{formatCents(value.valueCents)}</p>
+        <p className="mt-1 text-sm">
+          <Money cents={value.gainCents} signed className="font-semibold" /> <span className="text-ink-600">all time</span>
+        </p>
       </div>
-
-      <div className="min-w-0 flex-1">
-        <p className="label">Credit score</p>
-        <p className="mt-0.5 text-sm font-semibold text-navy-900">{credit.band}</p>
-        {credit.best && (
-          <p className="mt-0.5 truncate text-xs text-navy-600">{credit.best}</p>
-        )}
-      </div>
-
-      <span
-        className="text-navy-300 transition group-hover:translate-x-0.5 group-hover:text-navy-600"
-        aria-hidden="true"
-      >
-        →
-      </span>
-    </Link>
+      <p className="text-sm">
+        <Money cents={value.dayChangeCents} signed className="font-semibold" /> <span className="text-ink-500">today</span>
+      </p>
+    </div>
   );
 }
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
-      <Skeleton className="h-48 rounded-2xl" />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Skeleton className="h-44 rounded-2xl" />
-        <Skeleton className="h-44 rounded-2xl" />
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Skeleton className="h-32 sm:col-span-2" />
+        <Skeleton className="h-32" />
       </div>
-      <Skeleton className="h-56 rounded-2xl" />
+      <div className="grid grid-cols-4 gap-2">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-24" />
+        ))}
+      </div>
+      <Skeleton className="h-52 w-72" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Skeleton className="h-64" />
+        <Skeleton className="h-64" />
+      </div>
     </div>
   );
 }

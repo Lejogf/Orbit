@@ -118,10 +118,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 const TONES: Record<ToastTone, { wrap: string; bar: string; icon: string }> = {
-  success: { wrap: 'bg-navy-800 text-white', bar: 'bg-money-600', icon: '✓' },
-  info: { wrap: 'bg-navy-800 text-white', bar: 'bg-navy-300', icon: 'i' },
-  warning: { wrap: 'bg-white text-navy-900 border border-amber-300', bar: 'bg-amber-500', icon: '!' },
-  error: { wrap: 'bg-white text-navy-900 border border-brand-200', bar: 'bg-brand-500', icon: '!' },
+  success: { wrap: 'bg-ink-800 text-white', bar: 'bg-accent-600', icon: '✓' },
+  info: { wrap: 'bg-ink-800 text-white', bar: 'bg-ink-300', icon: 'i' },
+  warning: { wrap: 'bg-surface text-ink-900 border border-warn-300', bar: 'bg-warn-500', icon: '!' },
+  error: { wrap: 'bg-surface text-ink-900 border border-accent-200', bar: 'bg-accent-500', icon: '!' },
 };
 
 function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
@@ -143,7 +143,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
           className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
             toast.tone === 'success' || toast.tone === 'info'
               ? 'bg-white/15 text-white'
-              : 'bg-slate-100 text-navy-700'
+              : 'bg-surface-sunken text-ink-700'
           }`}
           aria-hidden="true"
         >
@@ -157,7 +157,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
               className={`ml-2 rounded-full px-1.5 py-0.5 text-[11px] font-bold tnum ${
                 toast.tone === 'success' || toast.tone === 'info'
                   ? 'bg-white/20 text-white'
-                  : 'bg-slate-200 text-navy-700'
+                  : 'bg-slate-200 text-ink-700'
               }`}
             >
               ×{toast.count}
@@ -169,7 +169,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
           onClick={onDismiss}
           aria-label="Dismiss notification"
           className={`-mr-1 shrink-0 rounded p-1 text-lg leading-none opacity-60 transition hover:opacity-100 ${
-            toast.tone === 'success' || toast.tone === 'info' ? 'text-white' : 'text-navy-600'
+            toast.tone === 'success' || toast.tone === 'info' ? 'text-white' : 'text-ink-600'
           }`}
         >
           ×

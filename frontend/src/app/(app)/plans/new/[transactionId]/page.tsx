@@ -59,10 +59,10 @@ export default function PlanPickerPage({ params }: { params: Promise<{ transacti
 
       <section className="card p-6">
         <p className="label">Split this purchase</p>
-        <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-navy-900">
+        <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-ink-900">
           {transaction.merchantName}
         </h1>
-        <p className="mt-1 text-sm text-navy-600">
+        <p className="mt-1 text-sm text-ink-600">
           {formatCents(transaction.amountCents)} on {formatLongDate(transaction.postedAt)}
         </p>
 
@@ -73,9 +73,9 @@ export default function PlanPickerPage({ params }: { params: Promise<{ transacti
       </section>
 
       {!options.eligibility.eligible && (
-        <div className="card border-brand-200 bg-brand-50/60 p-5">
-          <p className="text-sm font-semibold text-navy-900">This purchase can&rsquo;t be split</p>
-          <ul className="mt-2 space-y-1 text-sm text-navy-600">
+        <div className="card border-accent-200 bg-brand-50/60 p-5">
+          <p className="text-sm font-semibold text-ink-900">This purchase can&rsquo;t be split</p>
+          <ul className="mt-2 space-y-1 text-sm text-ink-600">
             {options.eligibility.reasons.map((reason) => (
               <li key={reason}>· {reason}</li>
             ))}
@@ -85,8 +85,8 @@ export default function PlanPickerPage({ params }: { params: Promise<{ transacti
 
       {/* Term picker */}
       <section className="card p-6">
-        <h2 className="text-sm font-semibold text-navy-900">Choose your plan</h2>
-        <p className="mt-1 text-xs text-navy-600">
+        <h2 className="text-sm font-semibold text-ink-900">Choose your plan</h2>
+        <p className="mt-1 text-xs text-ink-600">
           A shorter term costs less overall. A longer term lowers the monthly payment.
         </p>
 
@@ -105,39 +105,39 @@ export default function PlanPickerPage({ params }: { params: Promise<{ transacti
       {/* The selected plan in detail */}
       <section className="card p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-sm font-semibold text-navy-900">
+          <h2 className="text-sm font-semibold text-ink-900">
             {chosen.termMonths} monthly payments
           </h2>
           {chosen.aprPercent === 0 && <Chip tone="accent">0% promotional</Chip>}
         </div>
 
-        <p className="mt-3 text-4xl font-semibold tracking-tight text-navy-900 tnum">
+        <p className="mt-3 text-4xl font-semibold tracking-tight text-ink-900 tnum">
           {formatCents(chosen.monthlyPaymentCents)}
-          <span className="ml-1.5 text-lg font-normal text-navy-400">/month</span>
+          <span className="ml-1.5 text-lg font-normal text-ink-400">/month</span>
         </p>
 
-        <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 sm:grid-cols-4">
+        <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-line pt-5 sm:grid-cols-4">
           <div>
             <dt className="label">Total cost</dt>
-            <dd className="mt-1 text-sm font-semibold text-navy-900 tnum">
+            <dd className="mt-1 text-sm font-semibold text-ink-900 tnum">
               {formatCents(chosen.totalCostCents)}
             </dd>
           </div>
           <div>
             <dt className="label">Interest &amp; fees</dt>
-            <dd className="mt-1 text-sm font-semibold text-navy-900 tnum">
+            <dd className="mt-1 text-sm font-semibold text-ink-900 tnum">
               {chosen.totalInterestCents === 0 ? 'None' : formatCents(chosen.totalInterestCents)}
             </dd>
           </div>
           <div>
             <dt className="label">APR</dt>
-            <dd className="mt-1 text-sm font-semibold text-navy-900 tnum">
+            <dd className="mt-1 text-sm font-semibold text-ink-900 tnum">
               {chosen.aprPercent.toFixed(2)}%
             </dd>
           </div>
           <div>
             <dt className="label">Paid off by</dt>
-            <dd className="mt-1 text-sm font-semibold text-navy-900">
+            <dd className="mt-1 text-sm font-semibold text-ink-900">
               {formatLongDate(chosen.payoffDate)}
             </dd>
           </div>
@@ -148,17 +148,17 @@ export default function PlanPickerPage({ params }: { params: Promise<{ transacti
       <section
         className={`card p-6 ${
           !chosen.affordability.affordable
-            ? 'border-brand-200 bg-brand-50/60'
+            ? 'border-accent-200 bg-brand-50/60'
             : chosen.affordability.stretched
-              ? 'border-amber-200 bg-amber-50/60'
+              ? 'border-warn-300 bg-warn-50/60'
               : ''
         }`}
       >
-        <h2 className="text-sm font-semibold text-navy-900">Can you afford this?</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-navy-600">{chosen.affordability.message}</p>
+        <h2 className="text-sm font-semibold text-ink-900">Can you afford this?</h2>
+        <p className="mt-1.5 text-sm leading-relaxed text-ink-600">{chosen.affordability.message}</p>
 
         <div className="mt-4">
-          <div className="mb-1.5 flex justify-between text-xs text-navy-600">
+          <div className="mb-1.5 flex justify-between text-xs text-ink-600">
             <span>Committed income</span>
             <span className="tnum">
               {percent(chosen.affordability.ratioBefore)} → {percent(chosen.affordability.obligationRatio)}
@@ -168,15 +168,15 @@ export default function PlanPickerPage({ params }: { params: Promise<{ transacti
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 !chosen.affordability.affordable
-                  ? 'bg-brand-500'
+                  ? 'bg-accent-500'
                   : chosen.affordability.stretched
-                    ? 'bg-amber-500'
-                    : 'bg-navy-500'
+                    ? 'bg-warn-500'
+                    : 'bg-ink-500'
               }`}
               style={{ width: `${Math.min(100, chosen.affordability.obligationRatio * 100)}%` }}
             />
           </div>
-          <p className="mt-2 text-xs text-navy-600 tnum">
+          <p className="mt-2 text-xs text-ink-600 tnum">
             {formatCents(chosen.affordability.disposableAfterCents)} left each month after
             everything committed.
           </p>
@@ -185,23 +185,23 @@ export default function PlanPickerPage({ params }: { params: Promise<{ transacti
 
       {/* Credit impact */}
       <section className="card p-6">
-        <h2 className="text-sm font-semibold text-navy-900">What it does to your credit</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-navy-600">{chosen.creditImpact.summary}</p>
+        <h2 className="text-sm font-semibold text-ink-900">What it does to your credit</h2>
+        <p className="mt-1.5 text-sm leading-relaxed text-ink-600">{chosen.creditImpact.summary}</p>
 
         <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl bg-slate-50 p-4">
+          <div className="rounded-xl bg-surface-sunken p-4">
             <dt className="label">Card utilisation</dt>
-            <dd className="mt-1.5 text-lg font-semibold text-navy-900 tnum">
+            <dd className="mt-1.5 text-lg font-semibold text-ink-900 tnum">
               {percent(chosen.creditImpact.utilizationBefore, 1)}
-              <span className="mx-2 text-navy-400" aria-label="changes to">→</span>
-              <span className="text-navy-700">{percent(chosen.creditImpact.utilizationAfter, 1)}</span>
+              <span className="mx-2 text-ink-400" aria-label="changes to">→</span>
+              <span className="text-ink-700">{percent(chosen.creditImpact.utilizationAfter, 1)}</span>
             </dd>
           </div>
-          <div className="rounded-xl bg-slate-50 p-4">
+          <div className="rounded-xl bg-surface-sunken p-4">
             <dt className="label">Monthly obligations</dt>
-            <dd className="mt-1.5 text-lg font-semibold text-navy-900 tnum">
+            <dd className="mt-1.5 text-lg font-semibold text-ink-900 tnum">
               {formatCents(chosen.creditImpact.monthlyObligationsBeforeCents)}
-              <span className="mx-2 text-navy-400" aria-label="changes to">→</span>
+              <span className="mx-2 text-ink-400" aria-label="changes to">→</span>
               <span className="text-amber-700">
                 {formatCents(chosen.creditImpact.monthlyObligationsAfterCents)}
               </span>
@@ -211,7 +211,7 @@ export default function PlanPickerPage({ params }: { params: Promise<{ transacti
       </section>
 
       {failure && (
-        <p role="alert" className="rounded-xl bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700">
+        <p role="alert" className="rounded-xl bg-brand-50 px-4 py-3 text-sm font-medium text-accent-700">
           {failure}
         </p>
       )}
@@ -252,28 +252,28 @@ function TermCard({
       title={quote.unavailableReason ?? undefined}
       className={`rounded-xl border p-4 text-left transition ${
         selected
-          ? 'border-navy-900 bg-navy-900 text-white shadow-lg'
+          ? 'border-ink-900 bg-ink-900 text-white shadow-lg'
           : quote.available
-            ? 'border-slate-200 bg-white hover:border-navy-300'
-            : 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-50'
+            ? 'border-line bg-surface hover:border-ink-300'
+            : 'cursor-not-allowed border-line bg-surface-sunken opacity-50'
       }`}
     >
       <div className="flex items-baseline justify-between">
-        <span className={`text-lg font-semibold tnum ${selected ? 'text-white' : 'text-navy-900'}`}>
+        <span className={`text-lg font-semibold tnum ${selected ? 'text-white' : 'text-ink-900'}`}>
           {quote.termMonths}
         </span>
-        <span className={`text-[11px] font-medium ${selected ? 'text-navy-200' : 'text-navy-600'}`}>
+        <span className={`text-[11px] font-medium ${selected ? 'text-ink-200' : 'text-ink-600'}`}>
           months
         </span>
       </div>
 
-      <p className={`mt-2 text-xl font-semibold tracking-tight tnum ${selected ? 'text-white' : 'text-navy-900'}`}>
+      <p className={`mt-2 text-xl font-semibold tracking-tight tnum ${selected ? 'text-white' : 'text-ink-900'}`}>
         {formatCents(quote.monthlyPaymentCents)}
       </p>
 
-      <p className={`mt-1 text-[11px] leading-snug ${selected ? 'text-navy-200' : 'text-navy-600'}`}>
+      <p className={`mt-1 text-[11px] leading-snug ${selected ? 'text-ink-200' : 'text-ink-600'}`}>
         {quote.aprPercent === 0 ? (
-          <span className={selected ? 'font-semibold text-navy-200' : 'font-semibold text-navy-600'}>
+          <span className={selected ? 'font-semibold text-ink-200' : 'font-semibold text-ink-600'}>
             0% — no interest
           </span>
         ) : (
@@ -286,7 +286,7 @@ function TermCard({
       </p>
 
       {!quote.available && (
-        <p className="mt-2 text-[11px] font-medium text-navy-600">Not available</p>
+        <p className="mt-2 text-[11px] font-medium text-ink-600">Not available</p>
       )}
     </button>
   );

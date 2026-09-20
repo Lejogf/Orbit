@@ -47,17 +47,17 @@ export default function WelcomePage() {
   return (
     <div className="mx-auto max-w-2xl">
       <p className="label">Welcome</p>
-      <h1 className="mt-1 text-3xl font-semibold tracking-tight text-navy-900">
+      <h1 className="mt-1 text-3xl font-semibold tracking-tight text-ink-900">
         You&rsquo;re all set, {profile.firstName}.
       </h1>
-      <p className="mt-2 text-sm leading-relaxed text-navy-600">
-        Your account is open, but there&rsquo;s nothing in it yet. Flow works by reading your card
+      <p className="mt-2 text-sm leading-relaxed text-ink-600">
+        Your account is open, but there&rsquo;s nothing in it yet. Orbit works by reading your card
         history, so it needs transactions before it can find anything.
       </p>
 
       <div className="card mt-6 p-6">
-        <h2 className="text-base font-semibold text-navy-900">Load sample data</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-navy-600">
+        <h2 className="text-base font-semibold text-ink-900">Load sample data</h2>
+        <p className="mt-1.5 text-sm leading-relaxed text-ink-600">
           Adds a checking account, a savings account and a Quicksilver card with six months of
           realistic history — including ten subscriptions with problems worth finding. It&rsquo;s
           your own copy, separate from every other account.
@@ -68,8 +68,8 @@ export default function WelcomePage() {
       </div>
 
       <div className="card mt-4 p-6">
-        <h2 className="text-base font-semibold text-navy-900">Start empty instead</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-navy-600">
+        <h2 className="text-base font-semibold text-ink-900">Start empty instead</h2>
+        <p className="mt-1.5 text-sm leading-relaxed text-ink-600">
           Go straight to the dashboard. Most screens will be empty until transactions exist, which
           is the honest state for a new account.
         </p>

@@ -20,6 +20,10 @@ export const SECTIONS = [
   'plans',
   'credit',
   'alerts',
+  'spending',
+  'travel',
+  'split',
+  'support',
 ] as const;
 export type Section = (typeof SECTIONS)[number];
 

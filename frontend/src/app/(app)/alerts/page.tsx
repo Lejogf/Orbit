@@ -5,9 +5,26 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, type AlertItem } from '@/lib/api';
 import { formatCents, relativeDays } from '@/lib/format';
 import { Chip, EmptyState, ErrorState, PageHeader, Skeleton } from '@/components/ui';
+import { useT } from '@/lib/i18n';
+import { PushSetup } from '@/components/PushSetup';
 
 const KIND_LABEL: Record<string, { label: string; tone: 'warn' | 'danger' | 'info' | 'accent' | 'neutral' }> = {
   charge_pending: { label: 'Needs a decision', tone: 'warn' },
+  charge_posted: { label: 'Charge', tone: 'neutral' },
+  payment_sent: { label: 'Sent', tone: 'neutral' },
+  payment_received: { label: 'Received', tone: 'accent' },
+  payment_failed: { label: 'Failed', tone: 'danger' },
+  payment_requested: { label: 'Requested', tone: 'info' },
+  points_redeemed: { label: 'Points', tone: 'accent' },
+  trade_filled: { label: 'Investing', tone: 'info' },
+  card_opened: { label: 'New card', tone: 'accent' },
+  check_deposited: { label: 'Cheque', tone: 'info' },
+  price_drop: { label: 'Refund', tone: 'accent' },
+  trip_booked: { label: 'Trip', tone: 'info' },
+  profile_changed: { label: 'Account', tone: 'info' },
+  split_requested: { label: 'Split', tone: 'info' },
+  split_paid: { label: 'Paid you', tone: 'accent' },
+  support_summary: { label: 'Support', tone: 'neutral' },
   charge_declined: { label: 'Declined', tone: 'danger' },
   charge_approved: { label: 'Approved', tone: 'accent' },
   trial_converting: { label: 'Trial ending', tone: 'warn' },
@@ -18,6 +35,7 @@ const KIND_LABEL: Record<string, { label: string; tone: 'warn' | 'danger' | 'inf
 };
 
 export default function AlertsPage() {
+  const t = useT();
   const [alerts, setAlerts] = useState<AlertItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -59,10 +77,14 @@ export default function AlertsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Alerts"
-        title="Notifications"
-        subtitle="Charges waiting on you, and anything Flow spotted in your subscriptions."
+        eyebrow={t('nav.alerts')}
+        title={t('page.alerts.heading')}
+        subtitle={t('page.alerts.subtitle')}
       />
+
+      <div className="mb-6">
+        <PushSetup />
+      </div>
 
       {alerts.length === 0 ? (
         <EmptyState
@@ -81,19 +103,19 @@ export default function AlertsPage() {
               <h2 className="label mb-3">Waiting on you</h2>
               <ul className="space-y-3">
                 {pending.map((alert) => (
-                  <li key={alert.id} className="card border-amber-200 bg-amber-50/60 p-5">
+                  <li key={alert.id} className="card border-warn-300 bg-warn-50 p-5">
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="text-sm font-semibold text-navy-900">
+                      <p className="text-sm font-semibold text-ink-900">
                         {alert.title}
                         {alert.occurrences > 1 && (
-                          <span className="ml-2 rounded-full bg-amber-200 px-1.5 py-0.5 text-[11px] font-bold text-amber-900 tnum">
+                          <span className="ml-2 rounded-full bg-warn-200 px-1.5 py-0.5 text-[0.6875rem] font-bold text-warn-900 tnum">
                             ×{alert.occurrences}
                           </span>
                         )}
                       </p>
                       <Chip tone="warn">{KIND_LABEL[alert.kind]?.label ?? alert.kind}</Chip>
                     </div>
-                    <p className="mt-1 text-sm leading-relaxed text-navy-600">{alert.body}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-ink-600">{alert.body}</p>
 
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
@@ -112,7 +134,7 @@ export default function AlertsPage() {
                       </button>
                     </div>
 
-                    <p className="mt-2.5 text-xs text-navy-600">
+                    <p className="mt-2.5 text-xs text-ink-600">
                       Approving lets this one charge through. The next attempt asks you again.
                     </p>
                   </li>
@@ -130,17 +152,22 @@ export default function AlertsPage() {
                   return (
                     <li key={alert.id} className="card p-5">
                       <div className="flex flex-wrap items-start justify-between gap-2">
-                        <p className="text-sm font-semibold text-navy-900">{alert.title}</p>
+                        <p className="text-sm font-semibold text-ink-900">{alert.title}</p>
                         <Chip tone={kind?.tone ?? 'neutral'}>{kind?.label ?? alert.kind}</Chip>
                       </div>
-                      <p className="mt-1 text-sm leading-relaxed text-navy-600">{alert.body}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-ink-600">{alert.body}</p>
 
                       <div className="mt-3 flex items-center justify-between">
-                        <span className="text-xs text-navy-600">{relativeDays(alert.createdAt)}</span>
+                        <span className="text-xs text-ink-500">
+                          {relativeDays(alert.createdAt)}
+                          {alert.pushStatus === 'sent' && ' · sent to your phone'}
+                          {alert.pushStatus === 'no_device' && ' · inbox only'}
+                          {alert.pushStatus === 'failed' && ' · phone alert failed'}
+                        </span>
                         {alert.subscriptionId && (
                           <Link
                             href={`/subscriptions/${alert.subscriptionId}?from=alerts`}
-                            className="text-xs font-semibold text-navy-600 hover:text-navy-700"
+                            className="text-xs font-semibold text-ink-600 hover:text-ink-700"
                           >
                             Manage →
                           </Link>

@@ -14,6 +14,10 @@ import { plansRouter } from './plans.js';
 import { bankingRouter } from './banking.js';
 import { authRouter } from './auth.js';
 import { creditRouter } from './credit.js';
+import { assistRouter } from './assist.js';
+import { lifestyleRouter } from './lifestyle.js';
+import { profileRouter } from './profile.js';
+import { moneyRouter } from './money.js';
 
 export const apiRouter = Router();
 
@@ -22,6 +26,10 @@ apiRouter.use(creditRouter);
 apiRouter.use(subscriptionsRouter);
 apiRouter.use(plansRouter);
 apiRouter.use(bankingRouter);
+apiRouter.use(assistRouter);
+apiRouter.use(lifestyleRouter);
+apiRouter.use(profileRouter);
+apiRouter.use(moneyRouter);
 
 // --- health ---
 // Reports which data source is live, so a mid-demo fallback is visible.

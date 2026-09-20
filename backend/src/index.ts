@@ -7,6 +7,7 @@ import { apiRouter } from './routes/index.js';
 import { errorHandler, notFoundHandler } from './lib/http.js';
 import { resolveProvider } from './data/provider.js';
 import { prisma } from './lib/prisma.js';
+import { DEMO_USERNAME } from './data/sync.js';
 
 export function createApp(): express.Express {
   const app = express();
@@ -26,9 +27,15 @@ export function createApp(): express.Express {
 async function main(): Promise<void> {
   await resolveProvider();
 
+  // Databases seeded before usernames existed: give the demo account its handle.
+  await prisma.customer.updateMany({
+    where: { isDemoUser: true, username: null },
+    data: { username: DEMO_USERNAME },
+  });
+
   const app = createApp();
   const server = app.listen(config.port, () => {
-    console.log(`[server] Flow API listening on http://localhost:${config.port}`);
+    console.log(`[server] Orbit API listening on http://localhost:${config.port}`);
     console.log(`[server] Health: http://localhost:${config.port}/api/health`);
   });
 

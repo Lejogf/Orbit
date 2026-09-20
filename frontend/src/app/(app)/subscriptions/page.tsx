@@ -5,11 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, type Subscription, type SubscriptionSummary } from '@/lib/api';
 import { formatCents, formatDate, relativeDays, initial, merchantColor } from '@/lib/format';
 import { Chip, EmptyState, ErrorState, PageHeader, Skeleton } from '@/components/ui';
+import { useT } from '@/lib/i18n';
 import { useToast } from '@/components/Toast';
 
 type StatusFilter = 'all' | 'active' | 'guarded' | 'blocked';
 
 export default function SubscriptionsPage() {
+  const t = useT();
   const [data, setData] = useState<{
     subscriptions: Subscription[];
     summary: SubscriptionSummary;
@@ -46,35 +48,35 @@ export default function SubscriptionsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Subscriptions"
-        title="Everything charging you on repeat"
-        subtitle="Found automatically from purchases on your Quicksilver card. Turn on Guard to be asked before a charge, or block a merchant outright."
+        eyebrow={t('nav.subscriptions')}
+        title={t('page.subscriptions.heading')}
+        subtitle={t('page.subscriptions.subtitle')}
       />
 
       {/* Totals */}
       <section className="mb-5 grid gap-4 sm:grid-cols-3">
         <div className="card p-5">
           <p className="label">Monthly</p>
-          <p className="mt-1.5 text-3xl font-semibold tracking-tight text-navy-900 tnum">
+          <p className="mt-1.5 text-3xl font-semibold tracking-tight text-ink-900 tnum">
             {formatCents(summary.monthlyTotalCents)}
           </p>
-          <p className="mt-1 text-xs text-navy-600">{summary.activeCount} active subscriptions</p>
+          <p className="mt-1 text-xs text-ink-600">{summary.activeCount} active subscriptions</p>
         </div>
 
         <div className="card p-5">
           <p className="label">Yearly</p>
-          <p className="mt-1.5 text-3xl font-semibold tracking-tight text-navy-900 tnum">
+          <p className="mt-1.5 text-3xl font-semibold tracking-tight text-ink-900 tnum">
             {formatCents(summary.yearlyTotalCents)}
           </p>
-          <p className="mt-1 text-xs text-navy-600">committed over 12 months</p>
+          <p className="mt-1 text-xs text-ink-600">committed over 12 months</p>
         </div>
 
         <div className={`card p-5 ${summary.savedYearlyCents > 0 ? 'border-money-100 bg-money-50' : ''}`}>
           <p className="label">Money saved</p>
-          <p className="mt-1.5 text-3xl font-semibold tracking-tight text-money-600 tnum">
+          <p className="mt-1.5 text-3xl font-semibold tracking-tight text-accent-600 tnum">
             {formatCents(summary.savedYearlyCents)}
           </p>
-          <p className="mt-1 text-xs text-navy-600">
+          <p className="mt-1 text-xs text-ink-600">
             {summary.blockedCount === 0
               ? 'a year, once you block something'
               : `a year from ${summary.blockedCount} stopped`}
@@ -84,14 +86,14 @@ export default function SubscriptionsPage() {
 
       {/* Filters */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex rounded-xl border border-slate-200 bg-white p-1" role="group" aria-label="Filter by status">
+        <div className="flex rounded-xl border border-line bg-surface p-1" role="group" aria-label="Filter by status">
           {(['all', 'active', 'guarded', 'blocked'] as StatusFilter[]).map((option) => (
             <button
               key={option}
               onClick={() => setStatus(option)}
               aria-pressed={status === option}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
-                status === option ? 'bg-navy-600 text-white' : 'text-navy-600 hover:text-navy-800'
+                status === option ? 'bg-ink-600 text-white' : 'text-ink-600 hover:text-ink-800'
               }`}
             >
               {option}
@@ -103,7 +105,7 @@ export default function SubscriptionsPage() {
           value={category}
           onChange={(event) => setCategory(event.target.value)}
           aria-label="Filter by category"
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-navy-800 outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20"
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-xs font-semibold text-ink-800 outline-none focus:border-ink-500 focus:ring-2 focus:ring-ink-500/20"
         >
           <option value="all">All categories</option>
           {categories.map((name) => (
@@ -113,7 +115,7 @@ export default function SubscriptionsPage() {
           ))}
         </select>
 
-        <span className="ml-auto text-xs text-navy-600 tnum">
+        <span className="ml-auto text-xs text-ink-600 tnum">
           {visible.length} of {data.subscriptions.length}
         </span>
       </div>
@@ -197,7 +199,7 @@ function SubscriptionRow({
   return (
     <Link
       href={`/subscriptions/${subscription.id}?from=subscriptions`}
-      className={`card group flex items-center gap-4 p-4 transition hover:border-navy-300 ${
+      className={`card group flex items-center gap-4 p-4 transition hover:border-ink-300 ${
         isStopped ? 'opacity-60' : ''
       }`}
     >
@@ -212,13 +214,13 @@ function SubscriptionRow({
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className={`text-sm font-semibold text-navy-900 ${isStopped ? 'line-through' : ''}`}>
+          <p className={`text-sm font-semibold text-ink-900 ${isStopped ? 'line-through' : ''}`}>
             {subscription.merchantName}
           </p>
           <StatusChip status={subscription.status} />
         </div>
 
-        <p className="mt-0.5 text-xs text-navy-600">
+        <p className="mt-0.5 text-xs text-ink-600">
           {subscription.category} · {subscription.frequency} ·{' '}
           {subscription.isFreeTrial ? 'trial converts' : 'next'} {formatDate(subscription.nextChargeDate)}
         </p>
@@ -236,23 +238,23 @@ function SubscriptionRow({
       </div>
 
       <div className="text-right">
-        <p className="text-base font-semibold text-navy-900 tnum">
+        <p className="text-base font-semibold text-ink-900 tnum">
           {formatCents(subscription.amountCents)}
         </p>
-        <p className="text-xs text-navy-600 tnum">{formatCents(subscription.yearlyCostCents)}/yr</p>
+        <p className="text-xs text-ink-600 tnum">{formatCents(subscription.yearlyCostCents)}/yr</p>
       </div>
 
       <button
         onClick={simulate}
         disabled={busy}
         title={`Send a test charge from ${subscription.merchantName} through the Guard rules`}
-        className="hidden shrink-0 rounded-full border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-navy-600 transition hover:border-navy-300 hover:bg-navy-50 disabled:opacity-50 sm:block"
+        className="hidden shrink-0 rounded-full border border-line px-3 py-1.5 text-[11px] font-semibold text-ink-600 transition hover:border-ink-300 hover:bg-navy-50 disabled:opacity-50 sm:block"
       >
         {busy ? '…' : 'Test charge'}
       </button>
 
       <span
-        className="hidden text-navy-300 transition group-hover:translate-x-0.5 group-hover:text-navy-600 sm:block"
+        className="hidden text-ink-300 transition group-hover:translate-x-0.5 group-hover:text-ink-600 sm:block"
         aria-hidden="true"
       >
         →

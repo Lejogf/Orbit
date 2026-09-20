@@ -59,10 +59,31 @@ export function normaliseEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/** Usernames are case-insensitive, so they're stored lower-case. */
+export function normaliseUsername(username: string): string {
+  return username.trim().toLowerCase();
+}
+
+/** 3–30 characters: letters, numbers, dots, dashes and underscores. */
+export function checkUsername(username: string): string | null {
+  if (username.length < 3) return 'Use at least 3 characters.';
+  if (username.length > 30) return 'Use 30 characters or fewer.';
+  if (!/^[a-z0-9][a-z0-9._-]*$/.test(username)) {
+    return 'Use letters, numbers, dots, dashes or underscores, starting with a letter or number.';
+  }
+  // An @ would make a username indistinguishable from an email at sign-in.
+  return null;
+}
+
+/** Sign-in takes either: anything with an @ is an email. */
+export function identifierKind(identifier: string): 'email' | 'username' {
+  return identifier.includes('@') ? 'email' : 'username';
+}
+
 export interface AuthFailure {
   error: string;
   /** Field the message belongs against, when it maps to one. */
-  field?: 'email' | 'password' | 'firstName' | 'lastName' | 'dateOfBirth';
+  field?: 'email' | 'password' | 'firstName' | 'lastName' | 'dateOfBirth' | 'username';
 }
 
 /** Minimum bar for a password. Length does more work than character classes. */

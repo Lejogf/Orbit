@@ -89,43 +89,43 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-navy-900">{sub.merchantName}</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-ink-900">{sub.merchantName}</h1>
               {guarded && <Chip tone="accent">Guarded</Chip>}
               {sub.status === 'blocked' && <Chip tone="danger">Blocked</Chip>}
               {sub.status === 'canceled' && <Chip tone="neutral">Cancelled</Chip>}
             </div>
-            <p className="mt-1 text-sm text-navy-600">
+            <p className="mt-1 text-sm text-ink-600">
               {sub.category} · {sub.frequency} · detected with {Math.round(sub.confidence * 100)}%
               confidence
             </p>
           </div>
 
           <div className="text-right">
-            <p className="text-2xl font-semibold text-navy-900 tnum">{formatCents(sub.amountCents)}</p>
-            <p className="text-xs text-navy-600 tnum">{formatCents(sub.yearlyCostCents)}/yr</p>
+            <p className="text-2xl font-semibold text-ink-900 tnum">{formatCents(sub.amountCents)}</p>
+            <p className="text-xs text-ink-600 tnum">{formatCents(sub.yearlyCostCents)}/yr</p>
           </div>
         </div>
 
-        <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 sm:grid-cols-4">
+        <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-line pt-5 sm:grid-cols-4">
           <div>
             <dt className="label">Next charge</dt>
-            <dd className="mt-1 text-sm font-medium text-navy-900">{formatLongDate(sub.nextChargeDate)}</dd>
-            <dd className="text-xs text-navy-600">{relativeDays(sub.nextChargeDate)}</dd>
+            <dd className="mt-1 text-sm font-medium text-ink-900">{formatLongDate(sub.nextChargeDate)}</dd>
+            <dd className="text-xs text-ink-600">{relativeDays(sub.nextChargeDate)}</dd>
           </div>
           <div>
             <dt className="label">Paid so far</dt>
-            <dd className="mt-1 text-sm font-medium text-navy-900 tnum">
+            <dd className="mt-1 text-sm font-medium text-ink-900 tnum">
               {formatCents(sub.paidToDateCents)}
             </dd>
-            <dd className="text-xs text-navy-600 tnum">across {sub.chargeCount} charges</dd>
+            <dd className="text-xs text-ink-600 tnum">across {sub.chargeCount} charges</dd>
           </div>
           <div>
             <dt className="label">Billing</dt>
-            <dd className="mt-1 text-sm font-medium text-navy-900">Every {sub.intervalDays} days</dd>
+            <dd className="mt-1 text-sm font-medium text-ink-900">Every {sub.intervalDays} days</dd>
           </div>
           <div>
             <dt className="label">Guard activity</dt>
-            <dd className="mt-1 text-sm font-medium text-navy-900 tnum">
+            <dd className="mt-1 text-sm font-medium text-ink-900 tnum">
               {sub.guardRule ? `${sub.guardRule.declinedCount} declined` : '—'}
             </dd>
           </div>
@@ -166,8 +166,8 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
       )}
 
       <section className="card p-6">
-        <h2 className="text-sm font-semibold text-navy-900">Take control</h2>
-        <p className="mt-1 text-xs text-navy-600">
+        <h2 className="text-sm font-semibold text-ink-900">Take control</h2>
+        <p className="mt-1 text-xs text-ink-600">
           Guard and blocking happen at the card level — they work even if you can&rsquo;t cancel on
           the merchant&rsquo;s website.
         </p>
@@ -244,8 +244,8 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
       <section className="card border-dashed bg-navy-50/50 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-sm font-semibold text-navy-900">Demo mode</h2>
-            <p className="mt-1 max-w-md text-xs leading-relaxed text-navy-600">
+            <h2 className="text-sm font-semibold text-ink-900">Demo mode</h2>
+            <p className="mt-1 max-w-md text-xs leading-relaxed text-ink-600">
               Send a pretend charge from {sub.merchantName} through the Guard rules to see exactly
               what happens.
             </p>
@@ -261,15 +261,15 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
           href={sub.cancelUrl}
           target="_blank"
           rel="noreferrer noopener"
-          className="card flex items-center justify-between p-5 transition hover:border-navy-300"
+          className="card flex items-center justify-between p-5 transition hover:border-ink-300"
         >
           <div>
-            <p className="text-sm font-semibold text-navy-900">Cancel on {sub.merchantName}</p>
-            <p className="mt-0.5 text-xs text-navy-600">
+            <p className="text-sm font-semibold text-ink-900">Cancel on {sub.merchantName}</p>
+            <p className="mt-0.5 text-xs text-ink-600">
               Opens the merchant&rsquo;s own cancellation page in a new tab.
             </p>
           </div>
-          <span className="text-navy-300" aria-hidden="true">↗</span>
+          <span className="text-ink-300" aria-hidden="true">↗</span>
         </a>
       )}
     </div>
@@ -287,8 +287,8 @@ function CostOverTime({ sub }: { sub: SubscriptionDetail }) {
   return (
     <section className="card p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold text-navy-900">What this costs you</h2>
-        <p className="text-xs text-navy-600">
+        <h2 className="text-sm font-semibold text-ink-900">What this costs you</h2>
+        <p className="text-xs text-ink-600">
           {formatCents(sub.amountCents)} {sub.frequency}
         </p>
       </div>
@@ -326,8 +326,8 @@ function CostOverTime({ sub }: { sub: SubscriptionDetail }) {
                 aria-pressed={years === preset}
                 className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                   years === preset
-                    ? 'bg-navy-600 text-white'
-                    : 'bg-slate-100 text-navy-600 hover:bg-slate-200'
+                    ? 'bg-ink-600 text-white'
+                    : 'bg-surface-sunken text-ink-600 hover:bg-slate-200'
                 }`}
               >
                 {preset}y
@@ -346,20 +346,20 @@ function CostOverTime({ sub }: { sub: SubscriptionDetail }) {
           aria-valuetext={`${years} years`}
           className="mt-3 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-navy-600"
         />
-        <div className="mt-1.5 flex justify-between text-[11px] text-navy-400 tnum">
+        <div className="mt-1.5 flex justify-between text-[11px] text-ink-400 tnum">
           <span>1 year</span>
           <span>20 years</span>
         </div>
       </div>
 
-      <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-navy-700">
+      <p className="mt-4 rounded-lg bg-surface-sunken px-3 py-2.5 text-xs leading-relaxed text-ink-700">
         Keep {sub.merchantName} for another {years} {years === 1 ? 'year' : 'years'} and it will have
         taken <strong className="font-semibold tnum">{formatCents(lifetime)}</strong> from you in
         total.
       </p>
 
       {sub.hasPriceIncrease && sub.previousAmountCents && (
-        <p className="mt-2.5 rounded-lg bg-brand-50 px-3 py-2.5 text-xs leading-relaxed text-brand-700">
+        <p className="mt-2.5 rounded-lg bg-brand-50 px-3 py-2.5 text-xs leading-relaxed text-accent-700">
           The price rise alone accounts for{' '}
           {formatCents((sub.amountCents - sub.previousAmountCents) * 12 * years)} of that — it was{' '}
           {formatCents(sub.previousAmountCents)} before.
@@ -381,12 +381,12 @@ function CostTile({
   emphasis?: boolean;
 }) {
   return (
-    <div className={`rounded-xl p-4 ${emphasis ? 'bg-navy-600 text-white' : 'bg-slate-50'}`}>
-      <p className={`label ${emphasis ? 'text-navy-100' : ''}`}>{label}</p>
-      <p className={`mt-1.5 text-xl font-semibold tnum ${emphasis ? 'text-white' : 'text-navy-900'}`}>
+    <div className={`rounded-xl p-4 ${emphasis ? 'bg-ink-600 text-white' : 'bg-surface-sunken'}`}>
+      <p className={`label ${emphasis ? 'text-ink-100' : ''}`}>{label}</p>
+      <p className={`mt-1.5 text-xl font-semibold tnum ${emphasis ? 'text-white' : 'text-ink-900'}`}>
         {value}
       </p>
-      <p className={`mt-0.5 text-xs ${emphasis ? 'text-navy-200' : 'text-navy-600'}`}>{note}</p>
+      <p className={`mt-0.5 text-xs ${emphasis ? 'text-ink-200' : 'text-ink-600'}`}>{note}</p>
     </div>
   );
 }
@@ -401,15 +401,15 @@ function Flag({
   children: React.ReactNode;
 }) {
   const tones = {
-    warn: 'border-amber-300 bg-amber-50/70',
-    danger: 'border-brand-200 bg-brand-50/70',
-    info: 'border-navy-200 bg-navy-50/70',
-    neutral: 'border-slate-200 bg-slate-50',
+    warn: 'border-warn-300 bg-warn-50/70',
+    danger: 'border-accent-200 bg-brand-50/70',
+    info: 'border-ink-200 bg-navy-50/70',
+    neutral: 'border-line bg-surface-sunken',
   };
   return (
     <div className={`card p-4 ${tones[tone]}`}>
-      <p className="text-sm font-semibold text-navy-900">{title}</p>
-      <p className="mt-1 text-sm leading-relaxed text-navy-600">{children}</p>
+      <p className="text-sm font-semibold text-ink-900">{title}</p>
+      <p className="mt-1 text-sm leading-relaxed text-ink-600">{children}</p>
     </div>
   );
 }
@@ -434,11 +434,11 @@ function Control({
   return (
     <div
       className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 transition ${
-        active ? 'border-navy-300 bg-navy-50/60' : 'border-slate-200 bg-white'
+        active ? 'border-ink-300 bg-navy-50/60' : 'border-line bg-surface'
       }`}
     >
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-navy-900">
+        <p className="text-sm font-semibold text-ink-900">
           {title}
           {active && (
             <span className="ml-2 align-middle">
@@ -446,7 +446,7 @@ function Control({
             </span>
           )}
         </p>
-        <p className="mt-0.5 text-xs leading-relaxed text-navy-600">{body}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-ink-600">{body}</p>
       </div>
       <button
         onClick={onAction}
@@ -482,9 +482,9 @@ function VirtualCard({
   const locked = card.status === 'locked';
 
   return (
-    <div className="mt-4 rounded-2xl bg-navy-700 p-5 text-white">
+    <div className="mt-4 rounded-2xl bg-ink-700 p-5 text-white">
       <div className="flex items-start justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-navy-200">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-200">
           Virtual card
         </p>
         <Chip tone={locked ? 'warn' : 'money'}>{locked ? 'Locked' : 'Active'}</Chip>
@@ -494,7 +494,7 @@ function VirtualCard({
         {revealed ? card.number.replace(/(.{4})/g, '$1 ').trim() : `•••• •••• •••• ${card.last4}`}
       </p>
 
-      <div className="mt-2 flex gap-5 text-xs text-navy-200">
+      <div className="mt-2 flex gap-5 text-xs text-ink-200">
         <span>
           Exp {String(card.expMonth).padStart(2, '0')}/{String(card.expYear).slice(-2)}
         </span>
@@ -542,23 +542,23 @@ function VirtualCard({
         <button
           onClick={() => setConfirmingDelete(true)}
           disabled={busy !== null}
-          className="rounded-full bg-brand-500/25 px-3.5 py-1.5 text-xs font-semibold text-brand-100 transition hover:bg-brand-500/40"
+          className="rounded-full bg-accent-500/25 px-3.5 py-1.5 text-xs font-semibold text-accent-100 transition hover:bg-accent-500/40"
         >
           Delete number
         </button>
       </div>
 
-      <dl className="mt-4 space-y-1 border-t border-white/10 pt-3 text-[11px] leading-relaxed text-navy-200">
+      <dl className="mt-4 space-y-1 border-t border-white/10 pt-3 text-[11px] leading-relaxed text-ink-200">
         <div className="flex gap-2">
-          <dt className="w-24 shrink-0 font-semibold text-navy-100">Lock</dt>
+          <dt className="w-24 shrink-0 font-semibold text-ink-100">Lock</dt>
           <dd>Pauses charges. Same number, reversible any time.</dd>
         </div>
         <div className="flex gap-2">
-          <dt className="w-24 shrink-0 font-semibold text-navy-100">Real card</dt>
+          <dt className="w-24 shrink-0 font-semibold text-ink-100">Real card</dt>
           <dd>Stops using a virtual number. The subscription carries on.</dd>
         </div>
         <div className="flex gap-2">
-          <dt className="w-24 shrink-0 font-semibold text-navy-100">Delete</dt>
+          <dt className="w-24 shrink-0 font-semibold text-ink-100">Delete</dt>
           <dd>Destroys the number for good. You choose what the subscription does next.</dd>
         </div>
       </dl>
@@ -607,17 +607,17 @@ function DeleteCardDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="delete-card-title"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-navy-900/50 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink-900/50 p-4 backdrop-blur-sm sm:items-center"
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 text-navy-900 shadow-xl"
+        className="w-full max-w-md rounded-2xl bg-surface p-6 text-ink-900 shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
         <h3 id="delete-card-title" className="text-base font-semibold">
           Delete this card number?
         </h3>
-        <p className="mt-1.5 text-sm leading-relaxed text-navy-600">
+        <p className="mt-1.5 text-sm leading-relaxed text-ink-600">
           The number stops working immediately and can&rsquo;t be recovered. What should happen to
           your {merchantName} subscription?
         </p>
@@ -626,10 +626,10 @@ function DeleteCardDialog({
           <button
             onClick={() => onConfirm('move_to_real_card')}
             disabled={busy}
-            className="w-full rounded-xl border border-slate-200 p-4 text-left transition hover:border-navy-400 hover:bg-navy-50"
+            className="w-full rounded-xl border border-line p-4 text-left transition hover:border-ink-400 hover:bg-navy-50"
           >
             <span className="block text-sm font-semibold">Keep it, on my real card</span>
-            <span className="mt-0.5 block text-xs leading-relaxed text-navy-600">
+            <span className="mt-0.5 block text-xs leading-relaxed text-ink-600">
               {merchantName} keeps billing you, using your Quicksilver card instead. Use this when
               you want the service but not that number.
             </span>
@@ -638,12 +638,12 @@ function DeleteCardDialog({
           <button
             onClick={() => onConfirm('cancel')}
             disabled={busy}
-            className="w-full rounded-xl border border-brand-200 p-4 text-left transition hover:border-brand-400 hover:bg-brand-50"
+            className="w-full rounded-xl border border-accent-200 p-4 text-left transition hover:border-accent-400 hover:bg-brand-50"
           >
-            <span className="block text-sm font-semibold text-brand-700">
+            <span className="block text-sm font-semibold text-accent-700">
               Cancel the subscription
             </span>
-            <span className="mt-0.5 block text-xs leading-relaxed text-navy-600">
+            <span className="mt-0.5 block text-xs leading-relaxed text-ink-600">
               Nothing left to charge, so {merchantName} stops. The saving counts towards Money
               Saved. Use this to stop a free trial converting.
             </span>
@@ -695,7 +695,7 @@ function RemindersCard({
 
   return (
     <section className="card p-6">
-      <h2 className="text-sm font-semibold text-navy-900">Remind me before it renews</h2>
+      <h2 className="text-sm font-semibold text-ink-900">Remind me before it renews</h2>
 
       <fieldset className="mt-4">
         <legend className="label mb-2">How should we tell you?</legend>
@@ -707,20 +707,20 @@ function RemindersCard({
               aria-pressed={channel === option.value}
               className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
                 channel === option.value
-                  ? 'border-navy-600 bg-navy-600 text-white'
-                  : 'border-slate-200 bg-white text-navy-600 hover:border-navy-300'
+                  ? 'border-ink-600 bg-ink-600 text-white'
+                  : 'border-line bg-surface text-ink-600 hover:border-ink-300'
               }`}
             >
               {option.label}
               {option.note && (
-                <span className={channel === option.value ? 'text-navy-200' : 'text-navy-400'}>
+                <span className={channel === option.value ? 'text-ink-200' : 'text-ink-400'}>
                   {' '}· {option.note}
                 </span>
               )}
             </button>
           ))}
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-navy-600">
+        <p className="mt-2 text-[11px] leading-relaxed text-ink-600">
           App notifications are the safest option — your bank will never send you a link by text, so
           a text asking you to tap one is exactly what a scam looks like.
         </p>
@@ -760,7 +760,7 @@ function RemindersCard({
               inputMode="numeric"
               placeholder="Custom"
               aria-label="Custom number of days before renewal"
-              className="w-24 rounded-full border border-slate-200 px-3.5 py-2 text-xs tnum outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20"
+              className="w-24 rounded-full border border-line px-3.5 py-2 text-xs tnum outline-none focus:border-ink-500 focus:ring-2 focus:ring-ink-500/20"
             />
             <button type="submit" disabled={!custom || busy !== null} className="btn-ghost">
               Add
@@ -770,13 +770,13 @@ function RemindersCard({
       </fieldset>
 
       {sub.reminders.length > 0 && (
-        <ul className="mt-4 space-y-1.5 border-t border-slate-100 pt-4">
+        <ul className="mt-4 space-y-1.5 border-t border-line pt-4">
           {[...sub.reminders]
             .sort((a, b) => a.daysBefore - b.daysBefore)
             .map((reminder) => (
               <li
                 key={reminder.daysBefore}
-                className="flex items-center justify-between text-xs text-navy-600"
+                className="flex items-center justify-between text-xs text-ink-600"
               >
                 <span>
                   {reminder.daysBefore} {reminder.daysBefore === 1 ? 'day' : 'days'} before ·{' '}
@@ -791,7 +791,7 @@ function RemindersCard({
                     )
                   }
                   disabled={busy !== null}
-                  className="font-semibold text-brand-600 hover:text-brand-700"
+                  className="font-semibold text-accent-600 hover:text-accent-700"
                 >
                   Remove
                 </button>

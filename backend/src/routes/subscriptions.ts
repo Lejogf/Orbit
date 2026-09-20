@@ -1,13 +1,28 @@
 // Subscriptions, Guard, virtual cards, reminders and alerts.
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireCustomer } from '../middleware/session.js';
 import { ApiError, asyncRoute, param, sendOk } from '../lib/http.js';
 import * as subs from '../services/subscriptions.js';
-import { listAlerts, markAlertRead, unreadAlertCount } from '../services/dashboard.js';
+import { alertScope, listAlerts, markAlertRead, unreadAlertCount } from '../services/dashboard.js';
 
 export const subscriptionsRouter = Router();
+
+/**
+ * Resolves a subscription id only if it belongs to the signed-in customer, so a
+ * guessed id from another account reads as not found.
+ */
+async function ownedSubscriptionId(req: Request): Promise<string> {
+  const customer = await requireCustomer(req);
+  const id = param(req, 'id');
+  const owned = await prisma.subscription.findFirst({
+    where: { id, account: { customerId: customer.id } },
+    select: { id: true },
+  });
+  if (!owned) throw ApiError.notFound('Subscription');
+  return id;
+}
 
 /** Re-runs detection. Cheap enough to call on page load. */
 subscriptionsRouter.post(
@@ -117,7 +132,7 @@ subscriptionsRouter.post(
       ])
       .parse(req.body);
 
-    const id = param(req, 'id');
+    const id = await ownedSubscriptionId(req);
 
     if (body.status === 'deleted') {
       const result = await subs.deleteVirtualCard(prisma, id, body.then);
@@ -139,7 +154,7 @@ subscriptionsRouter.post(
       })
       .parse(req.body);
 
-    const result = await subs.setReminder(prisma, param(req, 'id'), daysBefore, channel);
+    const result = await subs.setReminder(prisma, await ownedSubscriptionId(req), daysBefore, channel);
     if (!result) throw ApiError.notFound('Subscription');
     sendOk(res, result);
   }),
@@ -150,7 +165,7 @@ subscriptionsRouter.delete(
   asyncRoute(async (req, res) => {
     const daysBefore = Number(param(req, 'daysBefore'));
     if (!Number.isFinite(daysBefore)) throw ApiError.badRequest('Invalid reminder');
-    sendOk(res, await subs.clearReminder(prisma, param(req, 'id'), daysBefore));
+    sendOk(res, await subs.clearReminder(prisma, await ownedSubscriptionId(req), daysBefore));
   }),
 );
 
@@ -178,7 +193,14 @@ subscriptionsRouter.post(
 subscriptionsRouter.post(
   '/alerts/:id/decision',
   asyncRoute(async (req, res) => {
+    const customer = await requireCustomer(req);
     const { decision } = z.object({ decision: z.enum(['approve', 'keep_blocked']) }).parse(req.body);
+
+    // Someone else's alert reads as not found, same as every other route.
+    const owned = await prisma.alert.findFirst({
+      where: { id: param(req, 'id'), ...alertScope(customer.id) },
+    });
+    if (!owned) throw ApiError.notFound('Alert');
 
     const result =
       decision === 'approve'

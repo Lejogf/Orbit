@@ -11,6 +11,7 @@ import { hashPassword } from '../services/auth.js';
  */
 export const DEMO_EMAIL = 'jordan.rivera@example.com';
 export const DEMO_PASSWORD = 'flow-demo-2026';
+export const DEMO_USERNAME = 'jordan';
 
 /** The demo customer has had credit for about five and a half years. */
 function demoCreditHistoryStart(): Date {
@@ -50,6 +51,7 @@ export async function syncSnapshot(
               nessieId: snapshot.customer.nessieId,
               firstName: snapshot.customer.firstName,
               lastName: snapshot.customer.lastName,
+              username: existing.username ?? DEMO_USERNAME,
               // Re-applied on every seed, so a re-run refreshes the demo
               // customer's credit history rather than leaving it stale.
               creditHistoryStartedAt: demoCreditHistoryStart(),
@@ -63,6 +65,7 @@ export async function syncSnapshot(
           lastName: snapshot.customer.lastName,
           isDemoUser: true,
           email: DEMO_EMAIL,
+          username: DEMO_USERNAME,
           passwordHash: demoCredentials.hash,
           passwordSalt: demoCredentials.salt,
           phone: '(804) 555-0142',
@@ -197,6 +200,18 @@ export async function syncSnapshot(
   await prisma.merchant.deleteMany({
     where: { transactions: { none: {} }, subscriptions: { none: {} } },
   });
+
+  // Every credit card is one of Orbit's products: that decides how points are
+  // earned and what the card looks like.
+  for (const [ref, accountId] of accountIdByRef) {
+    if (ref !== 'credit') continue;
+    const existing = await prisma.cardProduct.findUnique({ where: { accountId } });
+    if (!existing) {
+      await prisma.cardProduct.create({
+        data: { customerId: customer.id, accountId, productId: 'orbit-move', kind: 'personal', art: 'matte' },
+      });
+    }
+  }
 
   return {
     accounts: accountIdByRef.size ? new Set(accountIdByRef.values()).size : 0,

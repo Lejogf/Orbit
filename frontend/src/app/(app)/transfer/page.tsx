@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { api, type AccountSummary } from '@/lib/api';
 import { formatCents } from '@/lib/format';
@@ -76,7 +75,7 @@ export default function TransferPage() {
             id="from"
             value={from}
             onChange={(event) => setFrom(event.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20"
+            className="w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm outline-none focus:border-ink-500 focus:ring-2 focus:ring-ink-500/20"
           >
             {accounts
               .filter((a) => a.type !== 'Credit Card')
@@ -96,7 +95,7 @@ export default function TransferPage() {
             id="to"
             value={to}
             onChange={(event) => setTo(event.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20"
+            className="w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm outline-none focus:border-ink-500 focus:ring-2 focus:ring-ink-500/20"
           >
             {accounts
               .filter((account) => account.id !== from)
@@ -114,7 +113,7 @@ export default function TransferPage() {
             Amount
           </label>
           <div className="relative">
-            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400">
               $
             </span>
             <input
@@ -123,11 +122,11 @@ export default function TransferPage() {
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
               placeholder="0.00"
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-7 pr-3.5 text-sm tnum outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-500/20"
+              className="w-full rounded-xl border border-line bg-surface py-2.5 pl-7 pr-3.5 text-sm tnum outline-none focus:border-ink-500 focus:ring-2 focus:ring-ink-500/20"
             />
           </div>
           {source && (
-            <p className="mt-1.5 text-xs text-navy-600 tnum">
+            <p className="mt-1.5 text-xs text-ink-600 tnum">
               {formatCents(source.balanceCents)} available
             </p>
           )}
@@ -138,20 +137,16 @@ export default function TransferPage() {
         </button>
 
         {result && (
-          <p role="status" className="rounded-xl bg-navy-50 px-4 py-3 text-sm font-medium text-navy-700">
+          <p role="status" className="rounded-xl bg-navy-50 px-4 py-3 text-sm font-medium text-ink-700">
             {result}
           </p>
         )}
         {failure && (
-          <p role="alert" className="rounded-xl bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700">
+          <p role="alert" className="rounded-xl bg-brand-50 px-4 py-3 text-sm font-medium text-accent-700">
             {failure}
           </p>
         )}
       </form>
-
-      <Link href="/accounts" className="mt-4 inline-block text-sm font-medium text-navy-600 hover:text-navy-700">
-        ← Back to accounts
-      </Link>
     </div>
   );
 }

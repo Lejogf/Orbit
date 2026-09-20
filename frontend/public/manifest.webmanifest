@@ -1,0 +1,12 @@
+{
+  "name": "Orbit Bank",
+  "short_name": "Orbit",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#080d0a",
+  "theme_color": "#080d0a",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/ori.png", "sizes": "1104x1008", "type": "image/png", "purpose": "maskable" }
+  ]
+}

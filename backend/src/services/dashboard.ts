@@ -91,7 +91,7 @@ export async function getDashboard(
     prisma.account.findMany({ where: { customerId }, orderBy: { createdAt: 'asc' } }),
     subscriptionSummary(prisma, customerId),
     prisma.alert.findMany({
-      where: { status: 'pending', subscription: { account: { customerId } } },
+      where: { status: 'pending', ...alertScope(customerId) },
     }),
     prisma.installmentPlan.findMany({ where: { status: 'active', account: { customerId } } }),
     getTimeline(prisma, customerId, 45, today),
@@ -136,6 +136,9 @@ export function serializeAlert(alert: {
   readAt: Date | null;
   resolvedAt: Date | null;
   createdAt: Date;
+  href?: string | null;
+  pushStatus?: string | null;
+  deliveredAt?: Date | null;
 }) {
   return {
     id: alert.id,
@@ -149,15 +152,24 @@ export function serializeAlert(alert: {
     readAt: alert.readAt?.toISOString() ?? null,
     resolvedAt: alert.resolvedAt?.toISOString() ?? null,
     createdAt: alert.createdAt.toISOString(),
+    href: alert.href ?? null,
+    /** Whether the phone notification arrived; the inbox copy always exists. */
+    pushStatus: alert.pushStatus ?? null,
+    deliveredAt: alert.deliveredAt?.toISOString() ?? null,
     /** A pending charge is the one alert type that needs a decision. */
     needsDecision: alert.status === 'pending' && alert.kind === 'charge_pending',
   };
 }
 
+/** Subscription alerts are scoped through the account; the rest carry customerId. */
+export function alertScope(customerId: string) {
+  return { OR: [{ customerId }, { subscription: { account: { customerId } } }] };
+}
+
 export async function listAlerts(prisma: PrismaClient, customerId: string) {
   const alerts = await prisma.alert.findMany({
-    where: { subscription: { account: { customerId } } },
-    take: 50,
+    where: alertScope(customerId),
+    take: 100,
     orderBy: { createdAt: 'desc' },
   });
   return [...alerts].sort(byPriority).map(serializeAlert);
@@ -165,7 +177,7 @@ export async function listAlerts(prisma: PrismaClient, customerId: string) {
 
 export async function markAlertRead(prisma: PrismaClient, customerId: string, id: string) {
   await prisma.alert.updateMany({
-    where: { id, subscription: { account: { customerId } } },
+    where: { id, ...alertScope(customerId) },
     data: { readAt: new Date() },
   });
   return listAlerts(prisma, customerId);
@@ -173,6 +185,6 @@ export async function markAlertRead(prisma: PrismaClient, customerId: string, id
 
 export async function unreadAlertCount(prisma: PrismaClient, customerId: string): Promise<number> {
   return prisma.alert.count({
-    where: { readAt: null, subscription: { account: { customerId } } },
+    where: { readAt: null, ...alertScope(customerId) },
   });
 }

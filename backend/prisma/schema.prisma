@@ -15,8 +15,8 @@ datasource db {
 }
 
 model Customer {
-  id         String   @id @default(cuid())
-  nessieId   String?  @unique
+  id       String  @id @default(cuid())
+  nessieId String? @unique
 
   // --- identity, fixed after signup ---
   // A bank cannot let these change self-service: they are what the account was
@@ -30,44 +30,68 @@ model Customer {
 
   // --- credentials ---
   email        String  @unique
+  /// Optional sign-in handle. Stored lower-case; sign-in accepts it or the email.
+  username     String? @unique
   /// scrypt hash. Never the password itself.
   passwordHash String
   /// Random per-user salt for the hash above.
   passwordSalt String
 
   // --- contact details, editable ---
-  phone         String?
-  addressLine1  String?
-  addressLine2  String?
-  city          String?
-  state         String?
-  postalCode    String?
+  phone        String?
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  postalCode   String?
+
+  /// Someone the customer has authorised us to contact if we can't reach them,
+  /// or if we see activity that looks like exploitation. Common for older
+  /// customers; it grants no access to the account.
+  trustedContactName  String?
+  trustedContactPhone String?
 
   /// Lets the seed find the one demo customer on a re-run.
-  isDemoUser Boolean  @default(false)
+  isDemoUser Boolean @default(false)
 
   /// Fallback credit score. The live figure is ESTIMATED from behaviour by
   /// features/creditScore.ts; this is only used before there is enough data,
   /// and is what gets mirrored onto a Nessie loan.
-  creditScore    Int @default(742)
+  creditScore Int @default(742)
 
   /// When this person's credit history began — typically long before they
   /// joined Flow. Length of history is 15% of a score, so assuming it starts at
   /// signup would badly understate an established borrower.
   creditHistoryStartedAt DateTime?
   /// Missed instalments on record; enough of them drops the pricing band.
-  missedPayments Int @default(0)
+  missedPayments         Int       @default(0)
 
   /// Set when the customer closes their account. The row is kept rather than
   /// deleted, because financial records have to survive closure.
   closedAt DateTime?
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  accounts     Account[]
-  preferences  Preference?
-  sessions     Session[]
+  accounts          Account[]
+  preferences       Preference?
+  sessions          Session[]
+  changeRequests    ProfileChangeRequest[]
+  supportCases      SupportCase[]
+  bookings          TravelBooking[]
+  offerActivations  OfferActivation[]
+  splits            BillSplit[]
+  pushSubscriptions PushSubscription[]
+  alerts            Alert[]
+  cardProducts      CardProduct[]
+  holdings          Holding[]
+  trades            Trade[]
+  pointsEntries     PointsEntry[]
+  budget            Budget?
+  householdMembers  HouseholdMember[]
+  payees            Payee[]
+  scheduledPayments ScheduledPayment[]
+  checkDeposits     CheckDeposit[]
 }
 
 /// Notification and statement preferences. One row per customer.
@@ -89,6 +113,14 @@ model Preference {
   /// Warn when Safe to Spend drops below this, in cents. Null disables it.
   lowBalanceThresholdCents Int?
 
+  /// Alert on every card charge, however small. On by default: a missed charge
+  /// alert is how fraud goes unnoticed.
+  alertEveryCharge Boolean @default(true)
+
+  /// Accessibility settings as JSON, so they follow the customer to any device.
+  /// Shape is validated at the API boundary (see routes/profile.ts).
+  accessibility String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -97,12 +129,12 @@ model Preference {
 
 /// A signed-in session. Looked up by an opaque token held in an httpOnly cookie.
 model Session {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   customerId String
   /// Random opaque token. Never derived from anything guessable.
-  token      String   @unique
+  token      String    @unique
   expiresAt  DateTime
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
   /// Set when the user signs out, so the row can be kept for auditing.
   revokedAt  DateTime?
 
@@ -122,18 +154,19 @@ model Account {
   last4    String
 
   /// Cents. Never floats for money.
-  balanceCents Int @default(0)
+  balanceCents     Int     @default(0)
   /// Credit cards only.
   creditLimitCents Int?
   /// Credit cards only: rewards balance in cents.
-  rewardsCents Int @default(0)
+  rewardsCents     Int     @default(0)
   /// Card lock. A locked card declines every charge.
-  isLocked Boolean @default(false)
+  isLocked         Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   customer         Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  cardProduct      CardProduct?
   transactions     Transaction[]
   subscriptions    Subscription[]
   virtualCards     VirtualCard[]
@@ -148,7 +181,7 @@ model Merchant {
   name     String
 
   /// Used to spot overlapping services in the same category.
-  category String @default("Other")
+  category  String  @default("Other")
   cancelUrl String?
 
   /// Last time the user actually used this service. Nessie has no engagement
@@ -169,9 +202,9 @@ model Merchant {
 }
 
 model Transaction {
-  id        String  @id @default(cuid())
-  nessieId  String? @unique
-  accountId String
+  id         String  @id @default(cuid())
+  nessieId   String? @unique
+  accountId  String
   merchantId String?
 
   /// "purchase" | "deposit" | "withdrawal" | "transfer"
@@ -198,7 +231,7 @@ model Transaction {
 }
 
 model Subscription {
-  id         String  @id @default(cuid())
+  id         String @id @default(cuid())
   accountId  String
   merchantId String
 
@@ -207,9 +240,9 @@ model Subscription {
   category     String @default("Other")
 
   /// Typical charge, positive. Individual charges may vary slightly.
-  amountCents Int
+  amountCents  Int
   /// "weekly" | "monthly" | "yearly"
-  frequency   String
+  frequency    String
   /// Mean gap between charges. Drives next-charge prediction.
   intervalDays Int
 
@@ -223,11 +256,11 @@ model Subscription {
   status String @default("active")
 
   // Detection flags, surfaced as cards in the UI.
-  hasPriceIncrease   Boolean @default(false)
+  hasPriceIncrease    Boolean @default(false)
   previousAmountCents Int?
-  isFreeTrial        Boolean @default(false)
-  isDuplicate        Boolean @default(false)
-  looksUnused        Boolean @default(false)
+  isFreeTrial         Boolean @default(false)
+  isDuplicate         Boolean @default(false)
+  looksUnused         Boolean @default(false)
 
   nessieBillId String?
 
@@ -280,11 +313,11 @@ model VirtualCard {
   subscriptionId String? @unique
 
   /// Display-only mock PAN. Not a real card number.
-  number String
-  last4  String
+  number   String
+  last4    String
   expMonth Int
   expYear  Int
-  cvv    String
+  cvv      String
 
   /// active | locked | deleted (deleting cancels the subscription)
   status String @default("active")
@@ -333,20 +366,20 @@ model InstallmentPlan {
   merchantName  String
   description   String
 
-  principalCents Int
+  principalCents  Int
   /// 3 | 6 | 12 | 24
-  termMonths     Int
+  termMonths      Int
   /// 0 for the 3-month promo.
   monthlyFeeCents Int
   /// e.g. 14.99. 0 for the promo tier.
-  aprPercent     Float @default(0)
+  aprPercent      Float @default(0)
 
   monthlyPaymentCents Int
   totalCostCents      Int
   totalInterestCents  Int
 
   /// Retained for auditability: excellent | good | fair | poor
-  creditBand String
+  creditBand               String
   creditScoreAtOrigination Int?
 
   startDate  DateTime
@@ -387,6 +420,8 @@ model InstallmentPayment {
 model Alert {
   id             String  @id @default(cuid())
   subscriptionId String?
+  /// Set for alerts that belong to no subscription (card charges, travel, support).
+  customerId     String?
 
   /// charge_pending | charge_declined | charge_approved | trial_converting |
   /// price_increase | duplicate_detected | renewal_reminder | plan_payment_due
@@ -407,9 +442,429 @@ model Alert {
   readAt     DateTime?
   resolvedAt DateTime?
 
+  /// Where the customer can open it. Relative app path.
+  href String?
+
+  /// Push delivery outcome: sent | failed | no_device | disabled. The inbox copy
+  /// is written first and never deleted, so a failed push loses nothing.
+  pushStatus  String?
+  deliveredAt DateTime?
+
   createdAt DateTime @default(now())
 
   subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
+  @@index([customerId, createdAt])
+}
+
+/// A request to change identity details, which a bank must verify rather than
+/// accept on trust. Address changes verify by one-time code; legal name changes
+/// need a supporting document and a review.
+model ProfileChangeRequest {
+  id         String @id @default(cuid())
+  customerId String
+
+  /// address | legal_name
+  kind   String
+  /// pending_verification | under_review | approved | rejected | cancelled
+  status String
+
+  /// JSON of the requested values.
+  payload String
+  /// Why the change is being made (marriage, divorce, court order, move ...).
+  reason  String?
+
+  /// scrypt hash of the one-time code; the code itself is never stored.
+  codeHash      String?
+  codeSalt      String?
+  codeExpiresAt DateTime?
+  codeAttempts  Int       @default(0)
+
+  /// Metadata of the supporting document. The file itself is not retained by
+  /// this demo; a real system would store it encrypted with the case.
+  documentType String?
+  documentName String?
+  documentSize Int?
+
+  reviewerNote String?
+  resolvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
+}
+
+/// A conversation with a person. Created when Eno hands off, or directly from Help.
+model SupportCase {
+  id         String @id @default(cuid())
+  customerId String
+
+  /// chat | callback | call | message
+  channel String
+  topic   String
+  /// queued | active | scheduled | resolved
+  status  String @default("queued")
+
+  agentName     String?
+  /// For callbacks.
+  scheduledFor  DateTime?
+  callbackPhone String?
+  /// Read to the agent on a call so the customer is not re-verified.
+  callCode      String?
+
+  /// Accessibility needs the agent sees before joining (TTY, ASL, language ...).
+  needs String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  messages SupportMessage[]
+
+  @@index([customerId, createdAt])
+}
+
+model SupportMessage {
+  id        String   @id @default(cuid())
+  caseId    String
+  /// customer | agent | system | eno
+  author    String
+  body      String
+  createdAt DateTime @default(now())
+
+  supportCase SupportCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, createdAt])
+}
+
+/// A trip booked in-app. Paid on the card (mirrored to Nessie as a purchase),
+/// with miles, or both.
+model TravelBooking {
+  id         String @id @default(cuid())
+  customerId String
+  accountId  String
+
+  /// flight | hotel
+  kind    String
+  /// JSON of the itinerary shown to the customer.
+  details String
+  title   String
+
+  priceCents     Int
+  paidCardCents  Int
+  paidMilesCents Int @default(0)
+  milesEarned    Int @default(0)
+
+  /// Price drop protection: we keep watching the fare after booking.
+  currentPriceCents Int
+  refundedCents     Int @default(0)
+  /// How many times the fare has been re-checked since booking.
+  priceChecks       Int @default(0)
+
+  /// booked | cancelled
+  status String @default("booked")
+
+  transactionId    String?
+  nessiePurchaseId String?
+
+  departsAt DateTime
+  createdAt DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
+}
+
+model OfferActivation {
+  id            String   @id @default(cuid())
+  customerId    String
+  offerId       String
+  activatedAt   DateTime @default(now())
+  /// Cash back already paid out as a statement credit, in cents. What is still
+  /// owed is computed from qualifying purchases since activation.
+  redeemedCents Int      @default(0)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, offerId])
+}
+
+/// A shared bill split between people, from a receipt photo or a card purchase.
+model BillSplit {
+  id            String   @id @default(cuid())
+  customerId    String
+  title         String
+  totalCents    Int
+  /// JSON of items and assignments, kept so the split can be reopened.
+  details       String
+  transactionId String?
+  createdAt     DateTime @default(now())
+
+  customer Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  shares   SplitShare[]
+
+  @@index([customerId, createdAt])
+}
+
+model SplitShare {
+  id          String    @id @default(cuid())
+  splitId     String
+  name        String
+  /// Phone or email the request goes to. Null for the customer's own share.
+  contact     String?
+  amountCents Int
+  isSelf      Boolean   @default(false)
+  /// requested | paid | self
+  status      String    @default("requested")
+  paidAt      DateTime?
+
+  split BillSplit @relation(fields: [splitId], references: [id], onDelete: Cascade)
+}
+
+/// A browser's Web Push endpoint for this customer.
+model PushSubscription {
+  id            String    @id @default(cuid())
+  customerId    String
+  endpoint      String    @unique
+  p256dh        String
+  auth          String
+  createdAt     DateTime  @default(now())
+  lastSuccessAt DateTime?
+  failures      Int       @default(0)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+/// Server-generated secrets that must survive restarts (the VAPID key pair).
+model AppSecret {
+  key   String @id
+  value String
+}
+
+// ---------------------------------------------------------------------------
+// Cards, investing, rewards, budgeting and payments
+// ---------------------------------------------------------------------------
+
+/// A card product the customer holds. The Account row holds the balance; this
+/// holds which product it is and how it looks.
+model CardProduct {
+  id         String @id @default(cuid())
+  customerId String
+  accountId  String @unique
+
+  /// Catalogue id from features/cards.ts (orbit-start, orbit-rise, ...).
+  productId String
+  /// personal | business
+  kind      String    @default("personal")
+  /// Physical card artwork variant.
+  art       String    @default("default")
+  /// Set when the customer has asked for a physical card to be printed.
+  orderedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  account  Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+/// An investing position. Cash comes from checking or from redeemed points.
+model Holding {
+  id             String @id @default(cuid())
+  customerId     String
+  /// Ticker or crypto symbol, e.g. AAPL or BTC.
+  symbol         String
+  /// Fractional shares are normal for app investing, so this is a float.
+  quantity       Float  @default(0)
+  /// What was paid in total for the quantity held, in cents.
+  costBasisCents Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, symbol])
+}
+
+model Trade {
+  id          String   @id @default(cuid())
+  customerId  String
+  symbol      String
+  /// buy | sell
+  side        String
+  quantity    Float
+  /// Price per share at execution, in cents.
+  priceCents  Int
+  /// Total value moved, in cents.
+  amountCents Int
+  /// cash | points — where the money came from.
+  fundedBy    String   @default("cash")
+  createdAt   DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
+}
+
+/// Reward points ledger. 100 points = $1. Earning is written when a purchase
+/// posts; redeeming writes a negative entry, so the balance is always the sum.
+model PointsEntry {
+  id            String   @id @default(cuid())
+  customerId    String
+  /// Positive to earn, negative to redeem.
+  points        Int
+  /// earn | redeem | bonus | adjustment
+  kind          String
+  reason        String
+  /// What the redemption was taken as: cash | giftcard | travel | invest | merch
+  redemption    String?
+  /// Cents the customer received, for redemptions.
+  valueCents    Int?
+  transactionId String?
+  createdAt     DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
+}
+
+/// A budget: one per customer, optionally shared with a household.
+model Budget {
+  id         String @id @default(cuid())
+  customerId String @unique
+
+  /// rule5030 | rule70101010 | zero | custom
+  method                String @default("rule5030")
+  /// Take-home pay per month in cents. Null means "work it out from deposits".
+  monthlyIncomeCents    Int?
+  /// Where the customer wants to be: months of expenses saved.
+  emergencyTargetMonths Int    @default(3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer  Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  envelopes BudgetEnvelope[]
+}
+
+/// One category's plan for the month. Zero-based budgeting assigns every dollar.
+model BudgetEnvelope {
+  id           String @id @default(cuid())
+  budgetId     String
+  category     String
+  /// Planned amount for the month, in cents.
+  plannedCents Int    @default(0)
+  /// needs | wants | savings | debt — which slice of the rule it belongs to.
+  bucket       String @default("needs")
+  /// Warn, then block new spending in this category once it's used up.
+  limitCents   Int?
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetId, category])
+}
+
+/// A household: a couple, a family, a parent and a working teenager.
+model Household {
+  id           String   @id @default(cuid())
+  name         String
+  /// Shared passkey used to join. Stored hashed; shown once to the creator.
+  joinCodeHash String
+  joinCodeSalt String
+  createdAt    DateTime @default(now())
+
+  members HouseholdMember[]
+}
+
+model HouseholdMember {
+  id          String   @id @default(cuid())
+  householdId String
+  customerId  String
+  /// owner | partner | teen | child
+  role        String   @default("partner")
+  /// Whether this member's accounts count toward the shared budget.
+  sharesMoney Boolean  @default(true)
+  joinedAt    DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, customerId])
+  @@index([customerId])
+}
+
+/// Someone the customer pays: a person over Zelle, or a biller.
+model Payee {
+  id         String    @id @default(cuid())
+  customerId String
+  name       String
+  /// person | biller
+  kind       String    @default("person")
+  /// Phone or email for a person; account reference for a biller.
+  handle     String
+  /// Logo slug for billers, so the row shows a recognisable mark.
+  logoSlug   String?
+  lastPaidAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  customer Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  payments ScheduledPayment[]
+
+  @@index([customerId])
+}
+
+/// A payment: now, on a date, or repeating.
+model ScheduledPayment {
+  id         String  @id @default(cuid())
+  customerId String
+  payeeId    String?
+  accountId  String
+
+  amountCents   Int
+  memo          String?
+  /// send | request | bill
+  direction     String    @default("send")
+  /// Date the money should move.
+  dueDate       DateTime
+  /// none | weekly | biweekly | monthly
+  repeat        String    @default("none")
+  /// scheduled | sent | received | cancelled | failed
+  status        String    @default("scheduled")
+  sentAt        DateTime?
+  transactionId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  payee    Payee?   @relation(fields: [payeeId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, dueDate])
+}
+
+/// A cheque deposited by photo. Images are not retained by this demo.
+model CheckDeposit {
+  id          String   @id @default(cuid())
+  customerId  String
+  accountId   String
+  amountCents Int
+  /// pending | available | rejected
+  status      String   @default("pending")
+  /// When the funds clear.
+  availableOn DateTime
+  frontName   String?
+  backName    String?
+  createdAt   DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
 }

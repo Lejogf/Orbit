@@ -5,8 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, type CreditReport, type ScenarioId } from '@/lib/api';
 import { formatCents, percent } from '@/lib/format';
 import { ErrorState, PageHeader, Skeleton } from '@/components/ui';
+import { useT } from '@/lib/i18n';
 
 export default function CreditPage() {
+  const t = useT();
   const [report, setReport] = useState<CreditReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState<Set<ScenarioId>>(new Set());
@@ -63,9 +65,9 @@ export default function CreditPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Credit"
-        title="Your credit score"
-        subtitle="An estimate from the accounts Flow can see — and what would move it."
+        eyebrow={t('nav.credit')}
+        title={t('page.credit.heading')}
+        subtitle="A FICO-model estimate from the accounts Orbit can see — same five factors, same weights — and what would move it."
       />
 
       <ScoreDial
@@ -80,8 +82,8 @@ export default function CreditPage() {
 
       {/* What-if picker */}
       <section className="card p-6">
-        <h2 className="text-sm font-semibold text-navy-900">What would change it?</h2>
-        <p className="mt-1 text-xs leading-relaxed text-navy-600">
+        <h2 className="text-sm font-semibold text-ink-900">What would change it?</h2>
+        <p className="mt-1 text-xs leading-relaxed text-ink-600">
           Pick any combination. The dial above updates as you go.
         </p>
 
@@ -97,14 +99,14 @@ export default function CreditPage() {
                   aria-pressed={selected}
                   className={`flex w-full items-start gap-4 rounded-xl border p-4 text-left transition ${
                     selected
-                      ? 'border-navy-500 bg-navy-50'
-                      : 'border-slate-200 bg-white hover:border-navy-300'
+                      ? 'border-ink-500 bg-navy-50'
+                      : 'border-line bg-surface hover:border-ink-300'
                   }`}
                 >
                   <span
                     className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-[11px] font-bold ${
                       selected
-                        ? 'border-navy-600 bg-navy-600 text-white'
+                        ? 'border-ink-600 bg-ink-600 text-white'
                         : 'border-slate-300 text-transparent'
                     }`}
                     aria-hidden="true"
@@ -113,17 +115,17 @@ export default function CreditPage() {
                   </span>
 
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-navy-900">
+                    <span className="block text-sm font-semibold text-ink-900">
                       {scenario.label}
                     </span>
-                    <span className="mt-0.5 block text-xs leading-relaxed text-navy-600">
+                    <span className="mt-0.5 block text-xs leading-relaxed text-ink-600">
                       {scenario.description}
                     </span>
                   </span>
 
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tnum ${
-                      positive ? 'bg-money-100 text-money-700' : 'bg-brand-100 text-brand-700'
+                      positive ? 'bg-accent-100 text-accent-700' : 'bg-accent-100 text-accent-700'
                     }`}
                   >
                     {positive ? '+' : ''}
@@ -148,8 +150,8 @@ export default function CreditPage() {
 
       {/* Factor breakdown */}
       <section className="card p-6">
-        <h2 className="text-sm font-semibold text-navy-900">What makes up your score</h2>
-        <p className="mt-1 text-xs text-navy-600">
+        <h2 className="text-sm font-semibold text-ink-900">What makes up your score</h2>
+        <p className="mt-1 text-xs text-ink-600">
           The five factors scoring models publish, weighted as they weight them.
         </p>
 
@@ -157,39 +159,40 @@ export default function CreditPage() {
           {report.factors.map((factor) => (
             <li key={factor.key}>
               <div className="flex items-baseline justify-between gap-3">
-                <p className="text-sm font-medium text-navy-900">
+                <p className="text-sm font-medium text-ink-900">
                   {factor.label}
-                  <span className="ml-2 text-xs font-normal text-navy-500 tnum">
+                  <span className="ml-2 text-xs font-normal text-ink-500 tnum">
                     {percent(factor.weight)} of your score
                   </span>
                 </p>
-                <p className="shrink-0 text-xs font-semibold text-navy-700 tnum">
+                <p className="shrink-0 text-xs font-semibold text-ink-700 tnum">
                   {factor.points} pts
                 </p>
               </div>
 
-              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">
+              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-sunken">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     factor.standing === 'strong'
-                      ? 'bg-money-600'
+                      ? 'bg-accent-600'
                       : factor.standing === 'fair'
-                        ? 'bg-amber-500'
-                        : 'bg-brand-500'
+                        ? 'bg-warn-500'
+                        : 'bg-accent-500'
                   }`}
                   style={{ width: `${Math.max(3, factor.score * 100)}%` }}
                 />
               </div>
 
-              <p className="mt-1.5 text-xs leading-relaxed text-navy-600">{factor.detail}</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-ink-600">{factor.detail}</p>
             </li>
           ))}
         </ul>
       </section>
 
-      <p className="rounded-xl bg-slate-100 px-4 py-3 text-xs leading-relaxed text-navy-600">
-        <strong className="font-semibold text-navy-800">This is an estimate.</strong>{' '}
-        {report.disclaimer}
+      <p className="rounded-xl bg-surface-sunken px-4 py-3 text-xs leading-relaxed text-ink-600">
+        <strong className="font-semibold text-ink-800">This is an estimate, not a FICO® score.</strong>{' '}
+        {report.disclaimer} A FICO® score is sold by the credit bureaus; when you connect yours, we’ll show it beside this
+        estimate instead of replacing it.
       </p>
     </div>
   );
@@ -228,10 +231,10 @@ function ScoreDial({
   const baselinePosition = ((baseline - range.min) / span) * 100;
 
   return (
-    <section className="card overflow-hidden bg-navy-800 p-6 text-white sm:p-8">
+    <section className="card overflow-hidden bg-ink-800 p-6 text-white sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-navy-200">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-200">
             {simulating ? 'Projected score' : 'Estimated score'}
           </p>
           <p className="mt-2 flex items-baseline gap-3">
@@ -239,7 +242,7 @@ function ScoreDial({
             {delta !== 0 && (
               <span
                 className={`rounded-full px-2.5 py-1 text-sm font-bold tnum ${
-                  delta > 0 ? 'bg-money-600 text-white' : 'bg-brand-500 text-white'
+                  delta > 0 ? 'bg-accent-600 text-white' : 'bg-accent-500 text-white'
                 }`}
               >
                 {delta > 0 ? '+' : ''}
@@ -247,9 +250,9 @@ function ScoreDial({
               </span>
             )}
           </p>
-          <p className="mt-1.5 text-sm text-navy-200">
+          <p className="mt-1.5 text-sm text-ink-200">
             {band}
-            {simulating && <span className="text-navy-300"> · was {baseline}</span>}
+            {simulating && <span className="text-ink-300"> · was {baseline}</span>}
           </p>
         </div>
 
@@ -279,7 +282,7 @@ function ScoreDial({
           )}
         </div>
 
-        <div className="mt-2 flex justify-between text-[10px] text-navy-300">
+        <div className="mt-2 flex justify-between text-[10px] text-ink-300">
           {BANDS.map((b) => (
             <span key={b.label} className="tnum">
               {b.from}

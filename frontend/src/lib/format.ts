@@ -71,3 +71,11 @@ export function merchantColor(name: string): string {
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
   return palette[hash % palette.length]!;
 }
+
+/** Money with an optional compact form ("$1.2k") for tight chart labels. */
+export function formatMoney(cents: number, options: { compact?: boolean } = {}): string {
+  if (options.compact && Math.abs(cents) >= 100_000) {
+    return `$${(Math.abs(cents) / 100_000).toFixed(1).replace(/\.0$/, '')}k`;
+  }
+  return formatCents(cents);
+}

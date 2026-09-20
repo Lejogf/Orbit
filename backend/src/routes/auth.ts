@@ -13,13 +13,16 @@ import {
   closeAccount,
   closureBlockers,
   createSession,
+  checkUsername,
   hashPassword,
+  identifierKind,
   normaliseEmail,
+  normaliseUsername,
   revokeAllSessions,
   revokeSession,
   verifyPassword,
 } from '../services/auth.js';
-import { DEMO_EMAIL, DEMO_PASSWORD, syncSnapshot } from '../data/sync.js';
+import { DEMO_EMAIL, DEMO_PASSWORD, DEMO_USERNAME, syncSnapshot } from '../data/sync.js';
 import { createMockProvider } from '../data/provider.js';
 import { refreshSubscriptions } from '../services/subscriptions.js';
 import { requireCustomer } from '../middleware/session.js';
@@ -42,6 +45,9 @@ function publicProfile(customer: {
   firstName: string;
   lastName: string;
   email: string;
+  username: string | null;
+  trustedContactName: string | null;
+  trustedContactPhone: string | null;
   phone: string | null;
   addressLine1: string | null;
   addressLine2: string | null;
@@ -60,6 +66,10 @@ function publicProfile(customer: {
     lastName: customer.lastName,
     initials: `${customer.firstName[0] ?? ''}${customer.lastName[0] ?? ''}`,
     email: customer.email,
+    username: customer.username,
+    trustedContact: customer.trustedContactName
+      ? { name: customer.trustedContactName, phone: customer.trustedContactPhone }
+      : null,
     phone: customer.phone,
     address: {
       line1: customer.addressLine1,
@@ -82,6 +92,7 @@ const registerSchema = z.object({
   firstName: z.string().trim().min(1, 'Enter your first name.').max(60),
   lastName: z.string().trim().min(1, 'Enter your last name.').max(60),
   email: z.string().trim().email('Enter a valid email address.').max(200),
+  username: z.string().max(40).optional(),
   password: z.string().min(1, 'Choose a password.').max(200),
   phone: z.string().trim().max(30).optional(),
   dateOfBirth: z.string().optional(),
@@ -111,6 +122,15 @@ authRouter.post(
       );
     }
 
+    const username = body.username?.trim() ? normaliseUsername(body.username) : null;
+    if (username) {
+      const problem = checkUsername(username);
+      if (problem) throw new ApiError(400, 'INVALID_USERNAME', problem, { field: 'username' });
+      if (await prisma.customer.findUnique({ where: { username } })) {
+        throw new ApiError(409, 'USERNAME_TAKEN', 'That username is taken. Try another.', { field: 'username' });
+      }
+    }
+
     const { hash, salt } = await hashPassword(body.password);
 
     const customer = await prisma.customer.create({
@@ -118,6 +138,7 @@ authRouter.post(
         firstName: body.firstName,
         lastName: body.lastName,
         email,
+        username,
         passwordHash: hash,
         passwordSalt: salt,
         phone: body.phone || null,
@@ -146,23 +167,32 @@ authRouter.post(
 authRouter.post(
   '/auth/login',
   asyncRoute(async (req, res) => {
+    // `identifier` is a username or an email; `email` is still accepted from
+    // older clients.
     const body = z
       .object({
-        email: z.string().trim().min(1, 'Enter your email.').max(200),
+        identifier: z.string().trim().max(200).optional(),
+        email: z.string().trim().max(200).optional(),
         password: z.string().min(1, 'Enter your password.'),
       })
       .parse(req.body);
 
-    const customer = await prisma.customer.findUnique({
-      where: { email: normaliseEmail(body.email) },
-    });
+    const identifier = (body.identifier ?? body.email ?? '').trim();
+    if (!identifier) {
+      throw new ApiError(400, 'MISSING_IDENTIFIER', 'Enter your username or email.', { field: 'identifier' });
+    }
 
-    // Same message whether the email is unknown or the password is wrong, so the
-    // response can't be used to discover which addresses have accounts.
+    const customer =
+      identifierKind(identifier) === 'email'
+        ? await prisma.customer.findUnique({ where: { email: normaliseEmail(identifier) } })
+        : await prisma.customer.findUnique({ where: { username: normaliseUsername(identifier) } });
+
+    // Same message whether the account is unknown or the password is wrong, so
+    // the response can't be used to discover which accounts exist.
     const invalid = new ApiError(
       401,
       'INVALID_CREDENTIALS',
-      'That email and password combination does not match an account.',
+      "That username or email and password don't match an account.",
     );
 
     if (!customer) {
@@ -211,7 +241,7 @@ authRouter.get(
   '/auth/demo-credentials',
   asyncRoute(async (_req, res) => {
     // Published deliberately: this build has no real customers.
-    sendOk(res, { email: DEMO_EMAIL, password: DEMO_PASSWORD });
+    sendOk(res, { email: DEMO_EMAIL, username: DEMO_USERNAME, password: DEMO_PASSWORD });
   }),
 );
 
@@ -333,6 +363,7 @@ const preferencesSchema = z.object({
   alertsSms: z.boolean().optional(),
   marketingEmail: z.boolean().optional(),
   paperless: z.boolean().optional(),
+  alertEveryCharge: z.boolean().optional(),
   lowBalanceThresholdCents: z.number().int().min(0).max(1_000_000).nullable().optional(),
 });
 

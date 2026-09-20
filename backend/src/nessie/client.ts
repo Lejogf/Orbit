@@ -128,6 +128,10 @@ export const nessie = {
   createCustomer: (body: Omit<NessieCustomer, '_id'>) =>
     request<NessieCreateResponse<NessieCustomer>>('POST', '/customers', { body }).then(unwrapCreated),
 
+  /** Accepts `address` (and names). Used to mirror a verified address change. */
+  updateCustomer: (id: string, body: Partial<Omit<NessieCustomer, '_id'>>) =>
+    request<NessieUpdateResponse<NessieCustomer>>('PUT', `/customers/${id}`, { body }),
+
   // --- accounts ---
   listAccounts: () => request<NessieAccount[]>('GET', '/accounts'),
   getAccount: (id: string) => request<NessieAccount>('GET', `/accounts/${id}`),

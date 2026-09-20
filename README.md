@@ -6,7 +6,7 @@ Most budgeting tools show you what you spent last month. By then it's gone. Flow
 works on the other side of the problem: the subscriptions and instalment payments
 that are already committed, and what you can actually do about them.
 
-Built on Capital One's [Nessie]([http://api.nessieisreal.com/](https://nessieisreal.com/docs)) sandbox API.
+Built on Capital One's [Nessie]([http://api.nessieisreal.com/](https://nessieisreal.com/docs)]) sandbox API.
 
 ---
 
